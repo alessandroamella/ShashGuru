@@ -1,4 +1,4 @@
-# ChessAnalysis
+# ShashGuru
 
 A chess analyzer that takes a FEN or PGN and asks an LLM to analyse it.
 
