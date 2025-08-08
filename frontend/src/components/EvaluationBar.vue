@@ -99,6 +99,14 @@ const props = defineProps({
 const evaluation = ref(null)
 const loading = ref(false)
 const error = ref(null)
+const evaluationSideToMove = ref(true) // Store whose turn it was when evaluation was calculated
+
+// Helper function to determine whose turn it is from FEN
+const isWhiteToMove = computed(() => {
+  if (!props.fen) return true
+  const fenParts = props.fen.split(' ')
+  return fenParts[1] === 'w'
+})
 
 // Convert evaluation score to percentage (0-100)
 const evaluationPercentage = computed(() => {
@@ -108,7 +116,13 @@ const evaluationPercentage = computed(() => {
   
   if (evaluation.value.mate !== null) {
     // Mate situation - set to extreme values
-    if (evaluation.value.mate > 0) {
+    let mateValue = evaluation.value.mate
+    // If it was black to move when evaluation was calculated, flip the mate value to show from white's perspective
+    if (!evaluationSideToMove.value) {
+      mateValue = -mateValue
+    }
+    
+    if (mateValue > 0) {
       return 100 // White mate - white advantage
     } else {
       return 0 // Black mate - black advantage
@@ -116,9 +130,18 @@ const evaluationPercentage = computed(() => {
   } else if (evaluation.value.score !== null) {
     // Regular evaluation in centipawns
     score = evaluation.value.score
+    // If it was black to move when evaluation was calculated, flip the score to show from white's perspective
+    if (!evaluationSideToMove.value) {
+      score = -score
+    }
   } else if (evaluation.value.winprob !== null) {
     // Use win probability if available
-    return evaluation.value.winprob * 10
+    let winProb = evaluation.value.winprob
+    // If it was black to move when evaluation was calculated, flip the win probability to show from white's perspective
+    if (!evaluationSideToMove.value) {
+      winProb = 1.0 - winProb
+    }
+    return winProb * 100
   }
   
   // Convert centipawn evaluation to percentage
@@ -139,12 +162,22 @@ const formatEvaluation = () => {
   if (!evaluation.value) return ''
   
   if (evaluation.value.mate !== null) {
-    const mateSign = evaluation.value.mate > 0 ? '+' : ''
-    return `M${mateSign}${evaluation.value.mate}`
+    let mateValue = evaluation.value.mate
+    // If it was black to move when evaluation was calculated, flip the mate value to show from white's perspective
+    if (!evaluationSideToMove.value) {
+      mateValue = -mateValue
+    }
+    const mateSign = mateValue >= 0 ? '+' : ''
+    return `M${mateSign}${mateValue}`
   } else if (evaluation.value.score !== null) {
-    const score = evaluation.value.score / 100 // Convert centipawns to pawns
-    const sign = score >= 0 ? '+' : ''
-    return `${sign}${score.toFixed(1)}`
+    let score = evaluation.value.score
+    // If it was black to move when evaluation was calculated, flip the score to show from white's perspective
+    if (!evaluationSideToMove.value) {
+      score = -score
+    }
+    const scoreInPawns = score / 100 // Convert centipawns to pawns
+    const sign = scoreInPawns >= 0 ? '+' : ''
+    return `${sign}${scoreInPawns.toFixed(1)}`
   }
   
   return ''
@@ -153,6 +186,7 @@ const formatEvaluation = () => {
 const fetchEvaluation = async () => {
   if (!props.fen || !props.enabled) {
     evaluation.value = null
+    evaluationSideToMove.value = true
     return
   }
   
@@ -160,17 +194,23 @@ const fetchEvaluation = async () => {
     loading.value = true
     error.value = null
     
-    const response = await axios.post('http://localhost:5000/evaluation', {
+    // Store whose turn it is BEFORE making the request
+    evaluationSideToMove.value = isWhiteToMove.value
+    
+    const server_url = import.meta.env.BASE_URL + 'backend'
+    const response = await axios.post(`${server_url}/evaluation`, {
       fen: props.fen,
       depth: props.depth,
       lines: 1 // Always use 1 line for the evaluation bar
     })
     console.log('Evaluation:', response)
     evaluation.value = response.data.evaluation
+    console.log('Side to move when eval calculated:', evaluationSideToMove.value ? 'White' : 'Black', 'Raw score:', evaluation.value?.score, 'Adjusted score:', evaluationSideToMove.value ? evaluation.value?.score : -evaluation.value?.score)
   } catch (err) {
     console.error('Error fetching evaluation:', err)
     error.value = 'Failed to get evaluation'
     evaluation.value = null
+    evaluationSideToMove.value = true
   } finally {
     loading.value = false
   }
