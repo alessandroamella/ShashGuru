@@ -33,7 +33,7 @@ def analysis():
     print("Received analysis request for:", fen)
     depth = 15
     
-    bestmoves, ponder = engineCommunication.call_engine(fen, depth)
+    bestmoves, ponder = engineCommunication.call_engine(fen, depth, lines=3)
     prompt = LLMHandler.create_prompt_single_engine(fen, bestmoves, ponder)
 
     ############################
@@ -67,6 +67,51 @@ def response():
         yield "\n[END_STREAM]"
 
     return Response(stream_with_context(generate()), mimetype='text/plain')
+
+
+@app.route("/evaluation", methods=['GET', 'POST'])
+def evaluation():
+    """
+    Returns engine evaluation for a given FEN position.
+    
+    Expected JSON payload:
+    {
+        "fen": "string",
+        "depth": int (optional, default: 15),
+        "lines": int (optional, default: 3)
+    }
+    
+    Returns JSON with evaluation data including score, best moves, etc.
+    """
+    try:
+        data = request.get_json()
+        fen = data.get('fen')
+        depth = data.get('depth', 15)
+        lines = data.get('lines', 3)
+        
+        if not fen:
+            return jsonify({"error": "FEN is required"}), 400
+            
+        print(f"Received evaluation request for FEN: {fen}, depth: {depth}, lines: {lines}")
+        
+        # Get engine analysis
+        bestmoves, ponder = engineCommunication.call_engine(fen, depth, lines=lines)
+        
+        # Format the response
+        evaluation_data = {
+            "fen": fen,
+            "depth": depth,
+            "lines": lines,
+            "bestmoves": bestmoves[:lines],  # Limit to requested number of lines
+            "ponder": ponder,
+            "evaluation": bestmoves[0] if bestmoves else None  # Main evaluation from best move
+        }
+        
+        return jsonify(evaluation_data)
+        
+    except Exception as e:
+        print(f"Error in evaluation endpoint: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 

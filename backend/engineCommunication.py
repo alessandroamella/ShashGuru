@@ -25,7 +25,7 @@ engine_name_HUMAN = 'alexander'
 engine_path_NNUE = f".\\executables\\{engine_name_NNUE}.exe" if os.name == 'nt' else f"./executables/{engine_name_NNUE}"
 engine_path_HUMAN = f".\\executables\\{engine_name_HUMAN}.exe" if os.name == 'nt' else f"./executables/{engine_name_HUMAN}"
 
-def call_engine(fen, depth, engine_path=engine_path_NNUE):
+def call_engine(fen, depth, engine_path=engine_path_NNUE, lines=3):
     engine = subprocess.Popen([engine_path],
                                stdin=subprocess.PIPE,
                                stdout=subprocess.PIPE,
@@ -38,7 +38,7 @@ def call_engine(fen, depth, engine_path=engine_path_NNUE):
     engine.stdin.flush()
     engine.stdin.write(f'position fen {fen}\n')
     engine.stdin.flush()
-    engine.stdin.write(f'setoption name MultiPV value 3\n')
+    engine.stdin.write(f'setoption name MultiPV value {lines}\n')
     engine.stdin.flush()
     engine.stdin.write(f'go depth {depth}\n')
     engine.stdin.flush()
@@ -123,7 +123,7 @@ def apply_move_to_fen(fen, move_uci):
 def eval_move(fen, move, depth, engine_path):
     try:
         new_fen = apply_move_to_fen(fen, move)
-        evals, _ = call_engine(new_fen, depth, engine_path)
+        evals, _ = call_engine(new_fen, depth, engine_path, lines=1)
         return evals[0] if evals else None
     except Exception as e:
         print(f"Error evaluating move {move}: {e}")
@@ -131,8 +131,8 @@ def eval_move(fen, move, depth, engine_path):
 
 # Master function
 def engines(fen, depth):
-    bestmovesNNUE, ponderNNUE = call_engine(fen, depth, engine_path_NNUE)
-    bestmovesHUMAN, ponderHUMAN = call_engine(fen, depth, engine_path_HUMAN)
+    bestmovesNNUE, ponderNNUE = call_engine(fen, depth, engine_path_NNUE, lines=3)
+    bestmovesHUMAN, ponderHUMAN = call_engine(fen, depth, engine_path_HUMAN, lines=3)
 
     human_move = bestmovesHUMAN[0]['move']
     nnue_eval_of_human = eval_move(fen, human_move, depth, engine_path_NNUE)
