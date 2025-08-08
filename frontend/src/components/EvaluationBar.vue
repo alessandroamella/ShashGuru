@@ -100,6 +100,7 @@ const evaluation = ref(null)
 const loading = ref(false)
 const error = ref(null)
 const evaluationSideToMove = ref(true) // Store whose turn it was when evaluation was calculated
+const lastValidPercentage = ref(50) // Store the last valid percentage to avoid flipping during loading
 
 // Helper function to determine whose turn it is from FEN
 const isWhiteToMove = computed(() => {
@@ -110,6 +111,11 @@ const isWhiteToMove = computed(() => {
 
 // Convert evaluation score to percentage (0-100)
 const evaluationPercentage = computed(() => {
+  // If we're loading a new evaluation, keep showing the previous evaluation unchanged
+  if (loading.value && evaluation.value) {
+    return lastValidPercentage.value
+  }
+  
   if (!evaluation.value) return 50 // Neutral position
   
   let score = 0
@@ -158,7 +164,14 @@ const whitePercentage = computed(() => {
 
 const blackPercentage = computed(() => 100 - whitePercentage.value)
 
+const lastValidEvaluation = ref('')
+
 const formatEvaluation = () => {
+  // If we're loading a new evaluation, keep showing the previous evaluation text unchanged
+  if (loading.value && evaluation.value) {
+    return lastValidEvaluation.value
+  }
+  
   if (!evaluation.value) return ''
   
   if (evaluation.value.mate !== null) {
@@ -222,6 +235,41 @@ watch(() => props.depth, fetchEvaluation)
 watch(() => props.enabled, fetchEvaluation)
 watch(() => props.boardOrientation, () => {
   // No need to refetch, just update the display
+})
+
+// Watch for evaluation changes to update the last valid percentage
+watch([evaluation, loading], ([newEval, isLoading]) => {
+  if (newEval && !isLoading) {
+    // Update the last valid percentage when we have a new evaluation and we're not loading
+    let score = 0
+    
+    if (newEval.mate !== null) {
+      let mateValue = newEval.mate
+      if (!evaluationSideToMove.value) {
+        mateValue = -mateValue
+      }
+      lastValidPercentage.value = mateValue > 0 ? 100 : 0
+      const mateSign = mateValue >= 0 ? '+' : ''
+      lastValidEvaluation.value = `M${mateSign}${mateValue}`
+    } else if (newEval.score !== null) {
+      score = newEval.score
+      if (!evaluationSideToMove.value) {
+        score = -score
+      }
+      const normalizedScore = Math.max(-1000, Math.min(1000, score))
+      lastValidPercentage.value = Math.max(5, Math.min(95, 50 + (normalizedScore / 20)))
+      const scoreInPawns = score / 100
+      const sign = scoreInPawns >= 0 ? '+' : ''
+      lastValidEvaluation.value = `${sign}${scoreInPawns.toFixed(1)}`
+    } else if (newEval.winprob !== null) {
+      let winProb = newEval.winprob
+      if (!evaluationSideToMove.value) {
+        winProb = 1.0 - winProb
+      }
+      lastValidPercentage.value = winProb * 100
+      lastValidEvaluation.value = '' // Win probability doesn't show in the text
+    }
+  }
 })
 </script>
 
