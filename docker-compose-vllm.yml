@@ -37,7 +37,7 @@ services:
     container_name: model_server_0
     expose:
       - 8000
-    cpuset: "0-31,192-223"
+    cpuset: "0-42,256-298"
     # restart: unless-stopped
     mem_limit: 64g
     shm_size: 16g
@@ -54,7 +54,7 @@ services:
     container_name: model_server_1
     expose:
       - 8000
-    cpuset: "32-63,224-255"
+    cpuset: "43-84,299-340"
     restart: unless-stopped
     mem_limit: 64g
     shm_size: 16g
@@ -71,7 +71,7 @@ services:
     container_name: model_server_2
     expose:
       - 8000
-    cpuset: "64-95,256-287"
+    cpuset: "85-127,341-383"
     restart: unless-stopped
     mem_limit: 64g
     shm_size: 16g
@@ -88,7 +88,7 @@ services:
     container_name: model_server_3
     expose:
       - 8000
-    cpuset: "96-127,288-319"
+    cpuset: "128-170,384-426"
     restart: unless-stopped
     mem_limit: 64g
     shm_size: 16g
@@ -105,7 +105,7 @@ services:
     container_name: model_server_4
     expose:
       - 8000
-    cpuset: "128-159,320-351"
+    cpuset: "171-212,427-468"
     restart: unless-stopped
     mem_limit: 64g
     shm_size: 16g
@@ -122,7 +122,7 @@ services:
     container_name: model_server_5
     expose:
       - 8000
-    cpuset: "160-191,352-383"
+    cpuset: "213-255,469-511"
     restart: unless-stopped
     mem_limit: 64g
     shm_size: 16g
@@ -154,16 +154,6 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     restart: unless-stopped
 
-  node_exporter:
-    image: prom/node-exporter:latest
-    container_name: node_exporter
-    ports:
-      - "9100:9100"
-    restart: unless-stopped
-    command:
-      - '--path.rootfs=/host'
-    volumes:
-      - '/:/host:ro,rslave'
 
 volumes:
   grafana-storage:
