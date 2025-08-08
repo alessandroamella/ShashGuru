@@ -1,12 +1,25 @@
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { TheChessboard } from 'vue3-chessboard';
 import 'vue3-chessboard/style.css';
 import { Chess } from 'chess.js'
+import EvaluationBar from './EvaluationBar.vue'
+import EvaluationSettings from './EvaluationSettings.vue'
 
 const emit = defineEmits(['updateFen', 'setMovesFromPGN']);
 
 const boardAPI = ref(null);
+const chessboardHeight = ref(400); // Default height
+
+// Evaluation settings
+const evaluationDepth = ref(15);
+const evaluationEnabled = ref(true);
+
+// Board orientation tracking
+const boardOrientation = ref('white'); // 'white' or 'black'
+
+// Settings modal
+const showSettings = ref(false);
 
 const boardConfig = reactive({
   fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", // Starting FEN
@@ -20,7 +33,6 @@ const boardConfig = reactive({
 
 
 // --- ROBA NUOVA ---
-import { watch } from 'vue';
 
 const props = defineProps({
   fenProp: {
@@ -54,6 +66,29 @@ watch(fen, () => {
 
 // --- Event Handlers ---
 
+function handleBoardCreated(api) {
+  boardAPI.value = api;
+  // Get chessboard height after it's created
+  nextTick(() => {
+    updateChessboardHeight();
+  });
+}
+
+function updateChessboardHeight() {
+  if (boardAPI.value) {
+    try {
+      const boardElement = boardAPI.value.board.el;
+      if (boardElement) {
+        const rect = boardElement.getBoundingClientRect();
+        chessboardHeight.value = rect.height || 400;
+      }
+    } catch (error) {
+      console.log('Could not get board height, using default');
+      chessboardHeight.value = 400;
+    }
+  }
+}
+
 function handleCheckmate(isMated) {
   if (isMated === 'w') {
     alert('Black wins by checkmate!');
@@ -72,12 +107,21 @@ function handleMove(move) {
 
 function toggleOrientation() {
   boardAPI.value?.board.toggleOrientation();
+  boardOrientation.value = boardOrientation.value === 'white' ? 'black' : 'white';
+  // Update height after orientation change
+  nextTick(() => {
+    updateChessboardHeight();
+  });
 }
 
 function resetBoard() {
   boardAPI.value?.resetBoard();
   fen.value = boardConfig.fen;
   emit("updateFen", boardConfig.fen);
+  // Update height after reset
+  nextTick(() => {
+    updateChessboardHeight();
+  });
 }
 
 function setPositionFromInput() {
@@ -121,41 +165,235 @@ function handlePGN() {
   boardAPI.value?.setPosition(finalFEN);
 }
 
+// Initialize chessboard height on mount
+onMounted(() => {
+  // Wait a bit for the chessboard to render
+  setTimeout(() => {
+    updateChessboardHeight();
+  }, 500);
+  
+  // Add keyboard listener for modal
+  document.addEventListener('keydown', handleKeydown);
+});
 
+// Handle keyboard events
+function handleKeydown(event) {
+  if (event.key === 'Escape' && showSettings.value) {
+    showSettings.value = false;
+  }
+}
+
+// Cleanup on unmount
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown);
+});
 
 
 </script>
 
 <template>
-  <div class="d-flex">
-    <section role="region" aria-label="Board Controls" class="board-controls">
-      <button type="button" @click="toggleOrientation" class="btn btn-sm m-1">
-        Flip Board
-      </button>
-      <button type="button" @click="resetBoard" class="btn btn-sm m-1">
-        Starting Position
-      </button>
+  <div class="chessboard-container">
+    <div class="board-section">
+      <div class="d-flex">
+        <section role="region" aria-label="Board Controls" class="board-controls">
+          <button type="button" @click="toggleOrientation" class="btn btn-sm m-1">
+            Flip Board
+          </button>
+          <button type="button" @click="resetBoard" class="btn btn-sm m-1">
+            Starting Position
+          </button>
+        </section>
+        <div v-if="side === 'w'" class="text-white p-2">White to play</div>
+        <div v-else-if="side === 'b'" class="text-white p-2">Black to play</div>
+      </div>
+      
+      <div class="board-with-eval">
+        <div class="evaluation-panel">
+          <EvaluationBar 
+            :fen="fen" 
+            :depth="evaluationDepth" 
+            :enabled="evaluationEnabled"
+            :board-orientation="boardOrientation"
+            :bar-height="chessboardHeight" 
+          />
+        </div>
+        <div class="chessboard-container-wrapper">
+          <div class="settings-gear-container">
+            <button 
+              @click="showSettings = !showSettings" 
+              class="settings-gear-btn material-icons"
+              title="Evaluation Settings"
+            >
+              settings
+            </button>
+          </div>
+          <TheChessboard 
+            ref="chessboardRef"
+            :board-config="boardConfig" 
+            @board-created="handleBoardCreated" 
+            @checkmate="handleCheckmate"
+            @move="handleMove" 
+          />
+        </div>
+      </div>
 
-    </section>
-    <div v-if="side === 'w'" class="text-white p-2">White to play</div>
-    <div v-else-if="side === 'b'" class="text-white p-2">Black to play</div>
-  </div>
-  <TheChessboard :board-config="boardConfig" @board-created="(api) => (boardAPI = api)" @checkmate="handleCheckmate"
-    @move="handleMove" />
-
-  <div class="fen-input-container">
-    <input v-model="fen" @keyup.enter="setPositionFromInput" id="fenInput"
-      class="flex-item border rounded px-3 py-2 mt-2 w-100 text-white bg-dark border-0"
-      placeholder="Enter FEN and press Enter" autocomplete="off" aria-label="FEN Input" />
-  </div>
-  <div class="pgn-input-container">
-    <input v-model="pgn" @keyup.enter="handlePGN" id="pgnInput"
-      class="flex-item border rounded px-3 py-2 mt-2 w-100 text-white bg-dark border-0"
-      placeholder="Enter PGN and press Enter" autocomplete="off" aria-label="PGN Input" />
+      <div class="fen-input-container">
+        <input v-model="fen" @keyup.enter="setPositionFromInput" id="fenInput"
+          class="flex-item border rounded px-3 py-2 mt-2 w-100 text-white bg-dark border-0"
+          placeholder="Enter FEN and press Enter" autocomplete="off" aria-label="FEN Input" />
+      </div>
+      <div class="pgn-input-container">
+        <input v-model="pgn" @keyup.enter="handlePGN" id="pgnInput"
+          class="flex-item border rounded px-3 py-2 mt-2 w-100 text-white bg-dark border-0"
+          placeholder="Enter PGN and press Enter" autocomplete="off" aria-label="PGN Input" />
+      </div>
+    </div>
+    
+    <!-- Settings Modal -->
+    <div v-if="showSettings" class="settings-modal-overlay" @click="showSettings = false">
+      <div class="settings-modal" @click.stop>
+        <div class="settings-modal-header">
+          <h5 class="modal-title">Evaluation Settings</h5>
+          <button @click="showSettings = false" class="close-btn material-icons">close</button>
+        </div>
+        <div class="settings-modal-body">
+          <EvaluationSettings 
+            v-model:depth="evaluationDepth"
+            v-model:enabled="evaluationEnabled"
+          />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.chessboard-container {
+  width: 100%;
+}
+
+.board-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.board-with-eval {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+}
+
+.evaluation-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.chessboard-container-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-gear-container {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 10;
+  margin: 8px;
+}
+
+.settings-gear-btn {
+  background: none;
+  border: 2px solid #f2f2f2;
+  color: #f2f2f2;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 18px;
+}
+
+.settings-gear-btn:hover {
+  border-color: #cdd26a;
+  color: #cdd26a;
+  background-color: rgba(205, 210, 106, 0.1);
+  transform: rotate(90deg);
+}
+
+.settings-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.settings-modal {
+  background-color: #262421;
+  border-radius: 12px;
+  border: 1px solid #ffffff1e;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  min-width: 300px;
+  max-width: 400px;
+  animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.settings-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 20px 10px 20px;
+  border-bottom: 1px solid #ffffff1e;
+}
+
+.modal-title {
+  color: #f2f2f2;
+  margin: 0;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #f2f2f2;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  font-size: 20px;
+}
+
+.close-btn:hover {
+  color: #cdd26a;
+  background-color: rgba(205, 210, 106, 0.1);
+}
+
+.settings-modal-body {
+  padding: 20px;
+}
+
 .board-controls {
   margin-bottom: 1rem;
 }
