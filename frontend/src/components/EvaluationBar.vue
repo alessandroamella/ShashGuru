@@ -1,6 +1,6 @@
 <template>
   <div class="evaluation-container">
-    <div class="evaluation-bar-wrapper" :class="{ 'disabled': !enabled }">
+    <div class="evaluation-bar-wrapper" :class="{ 'disabled': !enabled, 'loading': loading && enabled }">
       <div class="evaluation-bar" :class="{ 'flipped': boardOrientation === 'black' }">
         <template v-if="enabled">
           <!-- Top section (black when white orientation, white when black orientation) -->
@@ -40,6 +40,11 @@
       <!-- Center line -->
       <div class="center-line"></div>
       
+      <!-- Loading overlay -->
+      <div v-if="loading && enabled" class="loading-overlay">
+        <div class="spinner"></div>
+      </div>
+      
       <!-- Disabled overlay -->
       <div v-if="!enabled" class="disabled-overlay">
         <span class="disabled-text">OFF</span>
@@ -52,14 +57,9 @@
         <span class="label">Best:</span> 
         <span class="move">{{ evaluation.move }}</span>
       </div>
-      <div v-if="evaluation.winprob !== null" class="win-probability">
+      <!-- <div v-if="evaluation.winprob !== null" class="win-probability">
         Win: {{ Math.round(evaluation.winprob * 10) }}%
-      </div>
-    </div>
-    
-    <!-- Loading indicator -->
-    <div v-if="loading && enabled" class="loading-indicator">
-      <div class="spinner"></div>
+      </div> -->
     </div>
     
     <!-- Error display -->
@@ -297,6 +297,24 @@ watch([evaluation, loading], ([newEval, isLoading]) => {
   opacity: 0.5;
 }
 
+.evaluation-bar-wrapper.loading {
+  opacity: 0.6;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  z-index: 20;
+}
+
 .disabled-overlay {
   position: absolute;
   top: 0;
@@ -393,17 +411,10 @@ watch([evaluation, loading], ([newEval, isLoading]) => {
   font-size: 11px;
 }
 
-.loading-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 30px;
-}
-
 .spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid #444;
+  border: 2px solid rgba(255, 255, 255, 0.3);
   border-top: 2px solid #cdd26a;
   border-radius: 50%;
   animation: spin 1s linear infinite;
