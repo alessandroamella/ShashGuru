@@ -202,6 +202,9 @@ onUnmounted(() => {
           <button type="button" @click="resetBoard" class="btn btn-sm m-1">
             Starting Position
           </button>
+          <button type="button" @click="showSettings = !showSettings" class="btn btn-sm m-1">
+            Settings
+          </button>
         </section>
         <div v-if="side === 'w'" class="text-white p-2">White to play</div>
         <div v-else-if="side === 'b'" class="text-white p-2">Black to play</div>
@@ -218,15 +221,6 @@ onUnmounted(() => {
           />
         </div>
         <div class="chessboard-container-wrapper">
-          <div class="settings-gear-container">
-            <button 
-              @click="showSettings = !showSettings" 
-              class="settings-gear-btn material-icons"
-              title="Evaluation Settings"
-            >
-              settings
-            </button>
-          </div>
           <TheChessboard 
             ref="chessboardRef"
             :board-config="boardConfig" 
@@ -279,8 +273,9 @@ onUnmounted(() => {
 
 .board-with-eval {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 15px;
+  height: 100%;
 }
 
 .evaluation-panel {
@@ -294,36 +289,6 @@ onUnmounted(() => {
   position: relative;
   display: flex;
   flex-direction: column;
-}
-
-.settings-gear-container {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 10;
-  margin: 8px;
-}
-
-.settings-gear-btn {
-  background: none;
-  border: 2px solid #f2f2f2;
-  color: #f2f2f2;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 18px;
-}
-
-.settings-gear-btn:hover {
-  border-color: #cdd26a;
-  color: #cdd26a;
-  background-color: rgba(205, 210, 106, 0.1);
-  transform: rotate(90deg);
 }
 
 .settings-modal-overlay {

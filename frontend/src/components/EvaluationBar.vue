@@ -1,7 +1,7 @@
 <template>
   <div class="evaluation-container">
     <div class="evaluation-bar-wrapper" :class="{ 'disabled': !enabled }">
-      <div class="evaluation-bar" :style="{ height: barHeight + 'px' }" :class="{ 'flipped': boardOrientation === 'black' }">
+      <div class="evaluation-bar" :class="{ 'flipped': boardOrientation === 'black' }">
         <template v-if="enabled">
           <!-- Top section (black when white orientation, white when black orientation) -->
           <div 
@@ -192,6 +192,7 @@ watch(() => props.boardOrientation, () => {
   align-items: center;
   gap: 5px;
   padding: 5px;
+  height: 100%;
 }
 
 .evaluation-bar-wrapper {
@@ -201,6 +202,7 @@ watch(() => props.boardOrientation, () => {
   border-radius: 4px;
   overflow: hidden;
   background-color: #222;
+  flex: 1;
 }
 
 .evaluation-bar-wrapper.disabled {
@@ -232,6 +234,7 @@ watch(() => props.boardOrientation, () => {
   display: flex;
   flex-direction: column-reverse;
   width: 100%;
+  height: 100%;
   position: relative;
 }
 
