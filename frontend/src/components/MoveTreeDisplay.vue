@@ -379,7 +379,6 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
 
 .variation-item {
   margin-left: 1.4rem;
-  font-size: 0.8em;
 }
 
 .variation-line {
@@ -391,6 +390,7 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
   background-color: rgba(255, 255, 255, 0.02);
   border-left: 3px solid #444;
   border-radius: 0 4px 4px 0;
+  font-size: 1em; /* Ensure consistent font size */
 }
 
 .variation-marker {
@@ -398,6 +398,7 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
   font-weight: bold;
   margin: 0 0.25rem;
   flex-shrink: 0;
+  font-size: 0.85em; /* Match move text size */
 }
 
 .variation-start {
@@ -405,6 +406,7 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
   font-weight: 500;
   margin-right: 0.5rem;
   flex-shrink: 0;
+  font-size: 0.85em; /* Match move text size */
 }
 
 .analysis-input {
@@ -429,9 +431,10 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
   padding: 0.25rem 0.5rem;
 }
 
-/* Nested variations get deeper indentation */
+/* Nested variations get deeper indentation but maintain font size */
 .variation-item .move-tree-display {
   margin-left: 0;
+  font-size: 1em; /* Prevent font size inheritance */
 }
 
 .variation-item .variation-item {
