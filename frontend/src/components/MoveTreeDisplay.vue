@@ -130,9 +130,12 @@ function buildDisplayItems(startNode, items, moveIndex) {
   let current = startNode;
   let currentMoveIndex = moveIndex;
   
-  // Skip the root node if it has no move
+  // Skip the root node if it has no move but has children
   if (!current.move && current.mainLine) {
     current = current.mainLine;
+  } else if (!current.move && current.children.length > 0) {
+    // Root node with no move but has children - start with first child
+    current = current.children[0];
   }
   
   while (current && current.move) {
@@ -316,23 +319,25 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
 }
 
 .move-number {
-  width: 2rem;
+  width: 1.4rem;
   text-align: right;
-  margin-right: 0.5rem;
+  margin-right: 0.35rem;
   font-weight: bold;
   color: #adb5bd;
   flex-shrink: 0;
+  font-size: 0.85em;
 }
 
 .move-text {
   cursor: pointer;
-  padding: 0.1rem 0.4rem;
+  padding: 0.07rem 0.28rem;
   border-radius: 3px;
   transition: all 0.2s ease;
-  min-width: 3rem;
+  min-width: 2.1rem;
   text-align: center;
-  margin-right: 0.5rem;
+  margin-right: 0.35rem;
   flex-shrink: 0;
+  font-size: 0.85em;
 }
 
 .move-text:hover {
@@ -373,8 +378,8 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
 }
 
 .variation-item {
-  margin-left: 2rem;
-  font-size: 0.95em;
+  margin-left: 1.4rem;
+  font-size: 0.8em;
 }
 
 .variation-line {

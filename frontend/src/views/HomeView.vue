@@ -104,9 +104,15 @@ function addMove(move) {
         // Move to existing variation
         currentNode.value = existingChild;
       } else {
-        // Add as new variation
-        const newNode = currentNode.value.addVariation(chessMove.san, chess.fen());
-        currentNode.value = newNode;
+        // If this is the first move from current position, make it the main line
+        if (currentNode.value.children.length === 0) {
+          const newNode = currentNode.value.addChild(chessMove.san, chess.fen());
+          currentNode.value = newNode;
+        } else {
+          // Add as new variation
+          const newNode = currentNode.value.addVariation(chessMove.san, chess.fen());
+          currentNode.value = newNode;
+        }
       }
       selectedPath.value = currentNode.value.getPath();
       updateFen(currentNode.value.fen);
