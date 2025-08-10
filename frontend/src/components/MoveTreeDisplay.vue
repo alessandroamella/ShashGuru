@@ -104,29 +104,19 @@
       <div class="context-menu-section">
         <div class="context-menu-section-title">Tal (Attack)</div>
         <div class="context-menu-item" @click="setShashinType('high-tal')">
-          <template v-for="icon in getShashinIcon({ shashinType: 'high-tal' }).split(/(?!^)/u)">
-            <span class="shashin-icon">{{ icon }}</span>
-          </template> High Tal
+          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-tal' }) }}</span> High Tal
         </div>
         <div class="context-menu-item" @click="setShashinType('high-middle-tal')">
-          <template v-for="icon in getShashinIcon({ shashinType: 'high-middle-tal' }).split(/(?!^)/u)">
-            <span class="shashin-icon">{{ icon }}</span>
-          </template> High-Middle Tal
+          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-middle-tal' }) }}</span> High-Middle Tal
         </div>
         <div class="context-menu-item" @click="setShashinType('middle-tal')">
-          <template v-for="icon in getShashinIcon({ shashinType: 'middle-tal' }).split(/(?!^)/u)">
-            <span class="shashin-icon">{{ icon }}</span>
-          </template> Middle Tal
+          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-tal' }) }}</span> Middle Tal
         </div>
         <div class="context-menu-item" @click="setShashinType('middle-low-tal')">
-          <template v-for="icon in getShashinIcon({ shashinType: 'middle-low-tal' }).split(/(?!^)/u)">
-            <span class="shashin-icon">{{ icon }}</span>
-          </template> Middle-Low Tal
+          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-low-tal' }) }}</span> Middle-Low Tal
         </div>
         <div class="context-menu-item" @click="setShashinType('low-tal')">
-          <template v-for="icon in getShashinIcon({ shashinType: 'low-tal' }).split(/(?!^)/u)">
-            <span class="shashin-icon">{{ icon }}</span>
-          </template> Low Tal
+          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'low-tal' }) }}</span> Low Tal
         </div>
       </div>
 
@@ -134,9 +124,7 @@
       <div class="context-menu-section">
         <div class="context-menu-section-title">Capablanca (Strategic)</div>
         <div class="context-menu-item" @click="setShashinType('capablanca')">
-          <template v-for="icon in getShashinIcon({ shashinType: 'capablanca' }).split(/(?!^)/u)">
-            <span class="shashin-icon">{{ icon }}</span>
-          </template> Capablanca
+          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'capablanca' }) }}</span> Capablanca
         </div>
       </div>
 
@@ -144,29 +132,19 @@
       <div class="context-menu-section">
         <div class="context-menu-section-title">Petrosian (Defense)</div>
         <div class="context-menu-item" @click="setShashinType('high-petrosian')">
-          <template v-for="icon in getShashinIcon({ shashinType: 'high-petrosian' }).split(/(?!^)/u)">
-            <span class="shashin-icon">{{ icon }}</span>
-          </template> High Petrosian
+          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-petrosian' }) }}</span> High Petrosian
         </div>
         <div class="context-menu-item" @click="setShashinType('high-middle-petrosian')">
-          <template v-for="icon in getShashinIcon({ shashinType: 'high-middle-petrosian' }).split(/(?!^)/u)">
-            <span class="shashin-icon">{{ icon }}</span>
-          </template> High-Middle Petrosian
+          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-middle-petrosian' }) }}</span> High-Middle Petrosian
         </div>
         <div class="context-menu-item" @click="setShashinType('middle-petrosian')">
-          <template v-for="icon in getShashinIcon({ shashinType: 'middle-petrosian' }).split(/(?!^)/u)">
-            <span class="shashin-icon">{{ icon }}</span>
-          </template> Middle Petrosian
+          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-petrosian' }) }}</span> Middle Petrosian
         </div>
         <div class="context-menu-item" @click="setShashinType('middle-low-petrosian')">
-          <template v-for="icon in getShashinIcon({ shashinType: 'middle-low-petrosian' }).split(/(?!^)/u)">
-            <span class="shashin-icon">{{ icon }}</span>
-          </template> Middle-Low Petrosian
+          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-low-petrosian' }) }}</span> Middle-Low Petrosian
         </div>
         <div class="context-menu-item" @click="setShashinType('low-petrosian')">
-          <template v-for="icon in getShashinIcon({ shashinType: 'low-petrosian' }).split(/(?!^)/u)">
-            <span class="shashin-icon">{{ icon }}</span>
-          </template> Low Petrosian
+          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'low-petrosian' }) }}</span> Low Petrosian
         </div>
       </div>
 
@@ -174,9 +152,7 @@
       <div class="context-menu-section">
         <div class="context-menu-section-title">Chaos</div>
         <div class="context-menu-item" @click="setShashinType('chaos-all')">
-          <template v-for="icon in getShashinIcon({ shashinType: 'chaos-all' }).split(/(?!^)/u)">
-            <span class="shashin-icon">{{ icon }}</span>
-          </template> Total Chaos
+          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'chaos-all' }) }}</span> Total Chaos
         </div>
       </div>
 
@@ -562,9 +538,12 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
 
 .move-text .move-icon {
   font-size: 0.7em;
-  margin-right: 0.2rem;
+  margin-right: 0.3rem;
   opacity: 0.8;
   position: relative;
+  display: inline-block;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .move-text .move-icon .auto-indicator {
@@ -740,9 +719,13 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
 }
 
 .shashin-icon {
-  font-size: 1rem;
+  font-size: 0.9rem;
   flex-shrink: 0;
-  width: 1.2rem;
-  text-align: center;
+  min-width: 2rem;
+  width: auto;
+  text-align: left;
+  line-height: 1;
+  white-space: nowrap;
+  display: inline-block;
 }
 </style>
