@@ -44,8 +44,7 @@
         <!-- Variation -->
         <div v-else-if="moveItem.type === 'variation'" class="variation-item">
           <div class="variation-line">
-            <span class="variation-marker">(</span>
-            <span class="variation-start">{{ getVariationStart(moveItem.variation) }}</span>
+            <!-- <span class="variation-marker">(</span> -->
             <MoveTreeDisplay 
               :node="moveItem.variation"
               :currentNode="currentNode"
@@ -55,7 +54,7 @@
               @nodeClicked="$emit('nodeClicked', $event)"
               @addMove="$emit('addMove', $event)"
             />
-            <span class="variation-marker">)</span>
+            <!-- <span class="variation-marker">)</span> -->
           </div>
         </div>
       </div>
@@ -116,7 +115,8 @@ const displayItems = computed(() => {
   if (!props.node) return [];
   
   const items = [];
-  buildDisplayItems(props.node, items, 0);
+  const startingMoveIndex = calculateStartingMoveIndex(props.node);
+  buildDisplayItems(props.node, items, startingMoveIndex);
   return items;
 });
 
@@ -125,6 +125,31 @@ const isCurrentNodeInTree = computed(() => {
   if (!props.currentNode || !props.node) return false;
   return isNodeInTree(props.currentNode, props.node);
 });
+
+function calculateStartingMoveIndex(node) {
+  // If this is the root node or has no parent, start from 0
+  if (!node || !node.parent) return 0;
+  
+  // Use the FEN string to determine whose turn it is
+  // FEN format: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+  // The active color is the second field (w = white, b = black)
+  const parentFen = node.parent.fen;
+  if (!parentFen) return 0;
+  
+  const fenParts = parentFen.split(' ');
+  if (fenParts.length < 6) return 0;
+  
+  const activeColor = fenParts[1]; // 'w' for white, 'b' for black
+  const fullMoveNumber = parseInt(fenParts[5]) || 1;
+  
+  // Calculate the move index based on the position
+  // White's first move is index 0, black's first move is index 1, etc.
+  if (activeColor === 'w') {
+    return (fullMoveNumber - 1) * 2;
+  } else {
+    return (fullMoveNumber - 1) * 2 + 1;
+  }
+}
 
 function buildDisplayItems(startNode, items, moveIndex) {
   let current = startNode;
@@ -252,25 +277,6 @@ function isSelectedMove(moveNode) {
 function isMainLineMove(moveNode) {
   if (!moveNode || !moveNode.parent) return true;
   return moveNode.parent.mainLine === moveNode;
-}
-
-function getVariationStart(variationNode) {
-  // Calculate move number for variation start
-  let count = 0;
-  let current = variationNode;
-  while (current.parent) {
-    count++;
-    current = current.parent;
-  }
-  
-  const moveNumber = Math.ceil(count / 2);
-  const isBlackMove = count % 2 === 0;
-  
-  if (isBlackMove) {
-    return `${moveNumber}...${variationNode.move}`;
-  } else {
-    return `${moveNumber}.${variationNode.move}`;
-  }
 }
 
 async function handleAddMove() {
