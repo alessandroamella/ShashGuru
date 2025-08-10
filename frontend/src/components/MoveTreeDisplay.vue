@@ -104,19 +104,29 @@
       <div class="context-menu-section">
         <div class="context-menu-section-title">Tal (Attack)</div>
         <div class="context-menu-item" @click="setShashinType('high-tal')">
-          <span class="shashin-icon">⬆️</span><span class="shashin-icon">⚔️</span> High Tal
+          <template v-for="icon in getShashinIcon({ shashinType: 'high-tal' }).split(/(?!^)/u)">
+            <span class="shashin-icon">{{ icon }}</span>
+          </template> High Tal
         </div>
         <div class="context-menu-item" @click="setShashinType('high-middle-tal')">
-          <span class="shashin-icon">⬆️</span><span class="shashin-icon">🟰</span><span class="shashin-icon">⚔️</span> High-Middle Tal
+          <template v-for="icon in getShashinIcon({ shashinType: 'high-middle-tal' }).split(/(?!^)/u)">
+            <span class="shashin-icon">{{ icon }}</span>
+          </template> High-Middle Tal
         </div>
         <div class="context-menu-item" @click="setShashinType('middle-tal')">
-          <span class="shashin-icon">🟰</span><span class="shashin-icon">⚔️</span> Middle Tal
+          <template v-for="icon in getShashinIcon({ shashinType: 'middle-tal' }).split(/(?!^)/u)">
+            <span class="shashin-icon">{{ icon }}</span>
+          </template> Middle Tal
         </div>
         <div class="context-menu-item" @click="setShashinType('middle-low-tal')">
-          <span class="shashin-icon">🟰</span><span class="shashin-icon">⬇️</span><span class="shashin-icon">⚔️</span> Middle-Low Tal
+          <template v-for="icon in getShashinIcon({ shashinType: 'middle-low-tal' }).split(/(?!^)/u)">
+            <span class="shashin-icon">{{ icon }}</span>
+          </template> Middle-Low Tal
         </div>
         <div class="context-menu-item" @click="setShashinType('low-tal')">
-          <span class="shashin-icon">⬇️</span><span class="shashin-icon">⚔️</span> Low Tal
+          <template v-for="icon in getShashinIcon({ shashinType: 'low-tal' }).split(/(?!^)/u)">
+            <span class="shashin-icon">{{ icon }}</span>
+          </template> Low Tal
         </div>
       </div>
 
@@ -124,7 +134,9 @@
       <div class="context-menu-section">
         <div class="context-menu-section-title">Capablanca (Strategic)</div>
         <div class="context-menu-item" @click="setShashinType('capablanca')">
-          <span class="shashin-icon">⚖️</span> Capablanca
+          <template v-for="icon in getShashinIcon({ shashinType: 'capablanca' }).split(/(?!^)/u)">
+            <span class="shashin-icon">{{ icon }}</span>
+          </template> Capablanca
         </div>
       </div>
 
@@ -132,19 +144,29 @@
       <div class="context-menu-section">
         <div class="context-menu-section-title">Petrosian (Defense)</div>
         <div class="context-menu-item" @click="setShashinType('high-petrosian')">
-          <span class="shashin-icon">⬆️</span><span class="shashin-icon">🛡️</span> High Petrosian
+          <template v-for="icon in getShashinIcon({ shashinType: 'high-petrosian' }).split(/(?!^)/u)">
+            <span class="shashin-icon">{{ icon }}</span>
+          </template> High Petrosian
         </div>
         <div class="context-menu-item" @click="setShashinType('high-middle-petrosian')">
-          <span class="shashin-icon">⬆️</span><span class="shashin-icon">🟰</span><span class="shashin-icon">🛡️</span> High-Middle Petrosian
+          <template v-for="icon in getShashinIcon({ shashinType: 'high-middle-petrosian' }).split(/(?!^)/u)">
+            <span class="shashin-icon">{{ icon }}</span>
+          </template> High-Middle Petrosian
         </div>
         <div class="context-menu-item" @click="setShashinType('middle-petrosian')">
-          <span class="shashin-icon">🟰</span><span class="shashin-icon">🛡️</span> Middle Petrosian
+          <template v-for="icon in getShashinIcon({ shashinType: 'middle-petrosian' }).split(/(?!^)/u)">
+            <span class="shashin-icon">{{ icon }}</span>
+          </template> Middle Petrosian
         </div>
         <div class="context-menu-item" @click="setShashinType('middle-low-petrosian')">
-          <span class="shashin-icon">🟰</span><span class="shashin-icon">⬇️</span><span class="shashin-icon">🛡️</span> Middle-Low Petrosian
+          <template v-for="icon in getShashinIcon({ shashinType: 'middle-low-petrosian' }).split(/(?!^)/u)">
+            <span class="shashin-icon">{{ icon }}</span>
+          </template> Middle-Low Petrosian
         </div>
         <div class="context-menu-item" @click="setShashinType('low-petrosian')">
-          <span class="shashin-icon">⬇️</span><span class="shashin-icon">🛡️</span> Low Petrosian
+          <template v-for="icon in getShashinIcon({ shashinType: 'low-petrosian' }).split(/(?!^)/u)">
+            <span class="shashin-icon">{{ icon }}</span>
+          </template> Low Petrosian
         </div>
       </div>
 
@@ -152,7 +174,9 @@
       <div class="context-menu-section">
         <div class="context-menu-section-title">Chaos</div>
         <div class="context-menu-item" @click="setShashinType('chaos-all')">
-          <span class="shashin-icon">🌀</span> Total Chaos (∞)
+          <template v-for="icon in getShashinIcon({ shashinType: 'chaos-all' }).split(/(?!^)/u)">
+            <span class="shashin-icon">{{ icon }}</span>
+          </template> Total Chaos
         </div>
       </div>
 
