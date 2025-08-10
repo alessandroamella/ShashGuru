@@ -91,7 +91,7 @@ function buildTreeFromMoves(movesList) {
   selectedPath.value = current.getPath();
   
   // Fetch evaluations for all moves in the background
-  // fetchEvaluationsForMoves();
+  fetchEvaluationsForMoves();
   
   return current;
 }
@@ -459,7 +459,7 @@ watch(selectedMoveIndex, async () => {
               <button class="btn btn-sm btn-outline-info" 
                 @click="fetchEvaluationsForMoves" 
                 :disabled="isLoadingEvaluations"
-                title="Fetch Evaluations & Auto-assign Shashin Types based on position evaluation">
+                title="Fetch Evaluations">
                 <span v-if="isLoadingEvaluations" class="spinner-border spinner-border-sm me-1" role="status"></span>
                 <i class="material-icons" style="font-size: 18px;">assessment</i>
               </button>

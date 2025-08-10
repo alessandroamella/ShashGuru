@@ -478,76 +478,9 @@ function getShashinIcon(node) {
 
 function getAutoShashinType(evaluation) {
   if (!evaluation) return null;
-  
-  let winProb = 0;
-  let rawScore = 0;
-  
-  // Get the evaluation values and adjust for side to move if needed
-  if (evaluation.winprob !== null && evaluation.winprob !== undefined) {
-    // Direct win probability (0-1)
-    winProb = evaluation.winprob;
-    
-    // If it was black to move when evaluation was calculated, 
-    // we need to flip the win probability to show from white's perspective
-    if (evaluation.sideToMove === 'black') {
-      winProb = 1.0 - winProb;
-    }
-    
-    winProb = winProb * 100;
-  } else if (evaluation.mate !== null && evaluation.mate !== undefined) {
-    // Mate evaluation
-    let mateValue = evaluation.mate;
-    
-    // If it was black to move when evaluation was calculated, flip the mate value
-    if (evaluation.sideToMove === 'black') {
-      mateValue = -mateValue;
-    }
-    
-    winProb = mateValue > 0 ? 100 : 0;
-  } else if (evaluation.score !== null && evaluation.score !== undefined) {
-    // Convert centipawn evaluation to win probability
-    rawScore = evaluation.score;
-    
-    // If it was black to move when evaluation was calculated, flip the score
-    if (evaluation.sideToMove === 'black') {
-      rawScore = -rawScore;
-    }
-    
-    // Using a sigmoid-like function similar to what EvaluationBar uses
-    const normalizedScore = Math.max(-1000, Math.min(1000, rawScore));
-    winProb = Math.max(0, Math.min(100, 50 + (normalizedScore / 20)));
-  } else {
-    return null; // No evaluation data
-  }
-  
-  // Map win probability to Shashin types based on the table from ShashChess documentation
-  if (winProb >= 95) {
-    return 'high-tal'; // Winning: +- (95-100%)
-  } else if (winProb >= 90) {
-    return 'high-middle-tal'; // Dominant position: +/- \ +- (90-94%)
-  } else if (winProb >= 85) {
-    return 'middle-tal'; // Clear advantage: +/- (85-89%)
-  } else if (winProb >= 80) {
-    return 'middle-low-tal'; // Slightly better: +/= \ +/- (80-84%)
-  } else if (winProb >= 76) {
-    return 'low-tal'; // Slight advantage: +/= (76-79%)
-  } else if (winProb >= 51) {
-    return 'chaos-capablanca-tal'; // Initiative: ↑ (51-75%)
-  } else if (winProb >= 49 && winProb <= 51) {
-    return 'capablanca'; // Equal position: = (49-51% - narrow range for true equality)
-  } else if (winProb >= 25) {
-    return 'chaos-capablanca-petrosian'; // Opponent pressure: ↓ (25-49%)
-  } else if (winProb >= 21) {
-    return 'low-petrosian'; // Slight disadvantage: =/+ (21-24%)
-  } else if (winProb >= 16) {
-    return 'middle-low-petrosian'; // Significant disadvantage: -/+ \ =/+ (16-20%)
-  } else if (winProb >= 11) {
-    return 'middle-petrosian'; // Clear disadvantage: -/+ (11-15%)
-  } else if (winProb >= 6) {
-    return 'high-middle-petrosian'; // Decisive disadvantage: -+ \ -/+ (6-10%)
-  } else {
-    return 'high-petrosian'; // Winning (for opponent): -+ (0-5%)
-  }
+  // TODO: Implement auto-detection logic
+  return null; // Placeholder for now
+
 }
 
 // Click outside to close context menu
