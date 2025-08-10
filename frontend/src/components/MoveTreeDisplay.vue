@@ -104,19 +104,19 @@
       <div class="context-menu-section">
         <div class="context-menu-section-title">Tal (Attack)</div>
         <div class="context-menu-item" @click="setShashinType('high-tal')">
-          <span class="shashin-icon">⚔️</span> High Tal (+-)
+          <span class="shashin-icon">⬆️</span><span class="shashin-icon">⚔️</span> High Tal
         </div>
         <div class="context-menu-item" @click="setShashinType('high-middle-tal')">
-          <span class="shashin-icon">⚔️</span> High-Middle Tal (+/- \ +-)
+          <span class="shashin-icon">⬆️</span><span class="shashin-icon">🟰</span><span class="shashin-icon">⚔️</span> High-Middle Tal
         </div>
         <div class="context-menu-item" @click="setShashinType('middle-tal')">
-          <span class="shashin-icon">⚔️</span> Middle Tal (+/-)
+          <span class="shashin-icon">🟰</span><span class="shashin-icon">⚔️</span> Middle Tal
         </div>
         <div class="context-menu-item" @click="setShashinType('middle-low-tal')">
-          <span class="shashin-icon">⚔️</span> Middle-Low Tal (+/= \ +/-)
+          <span class="shashin-icon">🟰</span><span class="shashin-icon">⬇️</span><span class="shashin-icon">⚔️</span> Middle-Low Tal
         </div>
         <div class="context-menu-item" @click="setShashinType('low-tal')">
-          <span class="shashin-icon">⚔️</span> Low Tal (+/=)
+          <span class="shashin-icon">⬇️</span><span class="shashin-icon">⚔️</span> Low Tal
         </div>
       </div>
 
@@ -132,31 +132,25 @@
       <div class="context-menu-section">
         <div class="context-menu-section-title">Petrosian (Defense)</div>
         <div class="context-menu-item" @click="setShashinType('high-petrosian')">
-          <span class="shashin-icon">🛡️</span> High Petrosian (-+)
+          <span class="shashin-icon">⬆️</span><span class="shashin-icon">🛡️</span> High Petrosian (-+)
         </div>
         <div class="context-menu-item" @click="setShashinType('high-middle-petrosian')">
-          <span class="shashin-icon">🛡️</span> High-Middle Petrosian (-+ \ -/+)
+          <span class="shashin-icon">⬆️</span><span class="shashin-icon">🟰</span><span class="shashin-icon">🛡️</span> High-Middle Petrosian (-+ \ -/+)
         </div>
         <div class="context-menu-item" @click="setShashinType('middle-petrosian')">
-          <span class="shashin-icon">🛡️</span> Middle Petrosian (-/+)
+          <span class="shashin-icon">🟰</span><span class="shashin-icon">🛡️</span> Middle Petrosian (-/+)
         </div>
         <div class="context-menu-item" @click="setShashinType('middle-low-petrosian')">
-          <span class="shashin-icon">🛡️</span> Middle-Low Petrosian (-/+ \ =/+)
+          <span class="shashin-icon">🟰</span><span class="shashin-icon">⬇️</span><span class="shashin-icon">🛡️</span> Middle-Low Petrosian (-/+ \ =/+)
         </div>
         <div class="context-menu-item" @click="setShashinType('low-petrosian')">
-          <span class="shashin-icon">🛡️</span> Low Petrosian (=/+)
+          <span class="shashin-icon">⬇️</span><span class="shashin-icon">🛡️</span> Low Petrosian (=/+)
         </div>
       </div>
 
       <!-- Chaos positions -->
       <div class="context-menu-section">
         <div class="context-menu-section-title">Chaos</div>
-        <div class="context-menu-item" @click="setShashinType('chaos-capablanca-petrosian')">
-          <span class="shashin-icon">🌀</span> Capablanca-Petrosian (↓)
-        </div>
-        <div class="context-menu-item" @click="setShashinType('chaos-capablanca-tal')">
-          <span class="shashin-icon">🌀</span> Capablanca-Tal (↑)
-        </div>
         <div class="context-menu-item" @click="setShashinType('chaos-all')">
           <span class="shashin-icon">🌀</span> Total Chaos (∞)
         </div>
@@ -426,25 +420,24 @@ function hideContextMenu() {
 
 function getShashinIcon(node) {
   if (!node) return '';
+
+  const shashinIcons = {
+      'high-tal': '⬆️⚔️',
+      'high-middle-tal': '⚔️',
+      'middle-tal': '⚔️',
+      'middle-low-tal': '⬇️⚔️',
+      'low-tal': '⚔️',
+      'capablanca': '⚖️',
+      'high-petrosian': '⬆️🛡️',
+      'high-middle-petrosian': '⬆️🟰🛡️',
+      'middle-petrosian': '🟰🛡️',
+      'middle-low-petrosian': '🟰⬇️🛡️',
+      'low-petrosian': '⬇️🛡️',
+      'chaos-all': '🌀'
+    };
   
   // If manually set, use that
   if (node.shashinType) {
-    const shashinIcons = {
-      'high-tal': '⚔️',
-      'high-middle-tal': '⚔️',
-      'middle-tal': '⚔️',
-      'middle-low-tal': '⚔️',
-      'low-tal': '⚔️',
-      'capablanca': '⚖️',
-      'high-petrosian': '🛡️',
-      'high-middle-petrosian': '🛡️',
-      'middle-petrosian': '🛡️',
-      'middle-low-petrosian': '🛡️',
-      'low-petrosian': '🛡️',
-      'chaos-capablanca-petrosian': '🌀',
-      'chaos-capablanca-tal': '🌀',
-      'chaos-all': '🌀'
-    };
     return shashinIcons[node.shashinType] || '';
   }
   
@@ -452,23 +445,7 @@ function getShashinIcon(node) {
   if (node.evaluation) {
     const autoType = getAutoShashinType(node.evaluation);
     if (autoType) {
-      const autoIcons = {
-        'high-tal': '⚔️',
-        'high-middle-tal': '⚔️',
-        'middle-tal': '⚔️',
-        'middle-low-tal': '⚔️',
-        'low-tal': '⚔️',
-        'capablanca': '⚖️',
-        'high-petrosian': '🛡️',
-        'high-middle-petrosian': '🛡️',
-        'middle-petrosian': '🛡️',
-        'middle-low-petrosian': '🛡️',
-        'low-petrosian': '🛡️',
-        'chaos-capablanca-petrosian': '🌀',
-        'chaos-capablanca-tal': '🌀',
-        'chaos-all': '🌀'
-      };
-      return autoIcons[autoType] || '';
+      return shashinIcons[autoType] || '';
     }
   }
   
