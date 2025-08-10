@@ -6,7 +6,7 @@ import { Chess } from 'chess.js'
 import EvaluationBar from './EvaluationBar.vue'
 import EvaluationSettings from './EvaluationSettings.vue'
 
-const emit = defineEmits(['updateFen', 'setMovesFromPGN']);
+const emit = defineEmits(['updateFen', 'setMovesFromPGN', 'moveAdded']);
 
 const boardAPI = ref(null);
 const chessboardHeight = ref(400); // Default height
@@ -101,6 +101,14 @@ function handleMove(move) {
   const newFen = move.after;
   fen.value = newFen;
   emit("updateFen", newFen);
+  
+  // Emit the move to be added to the tree structure
+  emit("moveAdded", {
+    move: move.san || move.notation,
+    fen: newFen,
+    from: move.from,
+    to: move.to
+  });
 }
 
 // --- Board Control ---

@@ -1,7 +1,8 @@
 <script setup>
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import ChessBoard from '@/components/ChessBoard.vue';
 import AIChat from '@/components/AIChat.vue';
+import MoveTreeDisplay from '@/components/MoveTreeDisplay.vue';
 import { Chess } from 'chess.js';
 
 const fen = ref('');
@@ -12,6 +13,143 @@ const hasMoves = ref(false)
 const selectedMoveIndex = ref(0);
 const moveRefs = ref([]);
 
+// Tree structure for moves
+const moveTree = ref(null);
+const currentNode = ref(null);
+const selectedPath = ref([]);
+const isAnalysisMode = ref(false);
+
+// Tree node structure for moves
+class MoveNode {
+  constructor(move = null, fen = null, parent = null) {
+    this.move = move;           // The move in SAN notation
+    this.fen = fen;            // The FEN after this move
+    this.parent = parent;       // Parent node
+    this.children = [];         // Array of child nodes (variations)
+    this.mainLine = null;       // Main continuation
+    this.comment = '';          // Move comment/annotation
+    this.id = Math.random().toString(36).substr(2, 9); // Unique ID
+  }
+
+  addChild(move, fen) {
+    const child = new MoveNode(move, fen, this);
+    this.children.push(child);
+    if (!this.mainLine) {
+      this.mainLine = child;
+    }
+    return child;
+  }
+
+  addVariation(move, fen) {
+    const variation = new MoveNode(move, fen, this);
+    this.children.push(variation);
+    return variation;
+  }
+
+  getPath() {
+    const path = [];
+    let current = this;
+    while (current.parent) {
+      const parentIndex = current.parent.children.indexOf(current);
+      path.unshift(parentIndex);
+      current = current.parent;
+    }
+    return path;
+  }
+}
+
+// Initialize the tree with starting position
+function initializeTree() {
+  const startingFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  moveTree.value = new MoveNode(null, startingFen);
+  currentNode.value = moveTree.value;
+  selectedPath.value = [];
+}
+
+// Convert linear moves to tree structure
+function buildTreeFromMoves(movesList) {
+  initializeTree();
+  const chess = new Chess();
+  let current = moveTree.value;
+  
+  for (const move of movesList) {
+    try {
+      const chessMove = chess.move(move);
+      if (chessMove) {
+        current = current.addChild(chessMove.san, chess.fen());
+      }
+    } catch (e) {
+      console.error('Invalid move:', move, e);
+      break;
+    }
+  }
+  
+  // Set current node to the last move
+  currentNode.value = current;
+  selectedPath.value = current.getPath();
+  return current;
+}
+
+// Add a new move/variation to current position
+function addMove(move) {
+  if (!currentNode.value) return null;
+  
+  const chess = new Chess(currentNode.value.fen);
+  try {
+    const chessMove = chess.move(move);
+    if (chessMove) {
+      // Check if this move already exists as a child
+      const existingChild = currentNode.value.children.find(child => child.move === chessMove.san);
+      if (existingChild) {
+        // Move to existing variation
+        currentNode.value = existingChild;
+      } else {
+        // If this is the first move from current position, make it the main line
+        if (currentNode.value.children.length === 0) {
+          const newNode = currentNode.value.addChild(chessMove.san, chess.fen());
+          currentNode.value = newNode;
+        } else {
+          // Add as new variation
+          const newNode = currentNode.value.addVariation(chessMove.san, chess.fen());
+          currentNode.value = newNode;
+        }
+      }
+      selectedPath.value = currentNode.value.getPath();
+      updateFen(currentNode.value.fen);
+      rebuildMovesDisplay();
+      return currentNode.value;
+    }
+  } catch (e) {
+    console.error('Invalid move:', move, e);
+  }
+  return null;
+}
+
+// Navigate to a specific node
+function navigateToNode(node) {
+  currentNode.value = node;
+  selectedPath.value = node.getPath();
+  updateFen(node.fen);
+}
+
+// Get all moves in current main line
+function getMainLineMoves() {
+  const moves = [];
+  let current = moveTree.value;
+  while (current.mainLine) {
+    current = current.mainLine;
+    moves.push(current);
+  }
+  return moves;
+}
+
+// Rebuild the visual moves display
+function rebuildMovesDisplay() {
+  const mainLine = getMainLineMoves();
+  moves.value = mainLine.map(node => node.move);
+  selectedMoveIndex.value = selectedPath.value.length > 0 ? selectedPath.value[0] : -1;
+}
+
 // Metadata from PGN
 const whitePlayer = ref('');
 const blackPlayer = ref('');
@@ -19,10 +157,10 @@ const gameResult = ref('');
 
 // Called when ChessBoard emits PGN (full)
 function setMovesFromPGN(payload) {
-
   moveRefs.value = [];
-  // Set moves
-  moves.value = payload.moves;
+  
+  // Build tree from moves
+  buildTreeFromMoves(payload.moves);
   hasMoves.value = true;
 
   // Set player names and result
@@ -37,40 +175,130 @@ function setMovesFromPGN(payload) {
     gameResult.value = payload.headers.Result || '-';
   }
 
-  // Use chess.js to set fen from moves
-  const chess = new Chess();
-  for (const move of payload.moves) {
-    chess.move(move);
+  // Navigate to the end of the game
+  const mainLine = getMainLineMoves();
+  if (mainLine.length > 0) {
+    navigateToNode(mainLine[mainLine.length - 1]);
+  } else {
+    navigateToNode(moveTree.value);
   }
-  selectedMoveIndex.value = payload.moves.length - 1;
-  updateFen(chess.fen());
+  
+  rebuildMovesDisplay();
 }
 
 
 
+// Navigation functions
 function onMoveClicked(index) {
-  selectedMoveIndex.value = index;
-  const chess = new Chess();
-  for (let i = 0; i <= index; i++) {
-    chess.move(moves.value[i]);
+  const mainLine = getMainLineMoves();
+  if (index >= 0 && index < mainLine.length) {
+    navigateToNode(mainLine[index]);
+    rebuildMovesDisplay();
+  } else if (index === -1) {
+    navigateToNode(moveTree.value);
+    rebuildMovesDisplay();
   }
-  updateFen(chess.fen());
 }
+
 function backStart() {
-  onMoveClicked(0)
+  navigateToNode(moveTree.value);
+  rebuildMovesDisplay();
 }
+
 function backOneMove() {
-  if (selectedMoveIndex.value > 0) {
-    onMoveClicked(selectedMoveIndex.value - 1)
+  if (currentNode.value && currentNode.value.parent) {
+    navigateToNode(currentNode.value.parent);
+    rebuildMovesDisplay();
   }
 }
+
 function forwardOneMove() {
-  if (selectedMoveIndex.value < moves.value.length) {
-    onMoveClicked(selectedMoveIndex.value + 1)
+  if (currentNode.value) {
+    // If there's a mainLine, go there first
+    if (currentNode.value.mainLine) {
+      navigateToNode(currentNode.value.mainLine);
+      rebuildMovesDisplay();
+    }
+    // Otherwise, if there are children, go to the first child
+    else if (currentNode.value.children.length > 0) {
+      navigateToNode(currentNode.value.children[0]);
+      rebuildMovesDisplay();
+    }
   }
 }
+
 function forwardEnd() {
-  onMoveClicked(moves.value.length - 1)
+  const mainLine = getMainLineMoves();
+  if (mainLine.length > 0) {
+    navigateToNode(mainLine[mainLine.length - 1]);
+    rebuildMovesDisplay();
+  }
+}
+
+// Arrow key navigation
+function handleKeyDown(event) {
+  if (isLoading.value) return;
+  
+  switch(event.key) {
+    case 'ArrowLeft':
+      event.preventDefault();
+      backOneMove();
+      break;
+    case 'ArrowRight':
+      event.preventDefault();
+      forwardOneMove();
+      break;
+    case 'ArrowUp':
+      event.preventDefault();
+      // Go to beginning
+      backStart();
+      break;
+    case 'ArrowDown':
+      event.preventDefault();
+      // Go to end
+      forwardEnd();
+      break;
+    case 'Home':
+      event.preventDefault();
+      backStart();
+      break;
+    case 'End':
+      event.preventDefault();
+      forwardEnd();
+      break;
+    case 'Enter':
+      if (event.shiftKey) {
+        event.preventDefault();
+        toggleAnalysisMode();
+      }
+      break;
+  }
+}
+
+function navigateToPreviousVariation() {
+  if (!currentNode.value || !currentNode.value.parent) return;
+  
+  const siblings = currentNode.value.parent.children;
+  const currentIndex = siblings.indexOf(currentNode.value);
+  if (currentIndex > 0) {
+    navigateToNode(siblings[currentIndex - 1]);
+    rebuildMovesDisplay();
+  }
+}
+
+function navigateToNextVariation() {
+  if (!currentNode.value || !currentNode.value.parent) return;
+  
+  const siblings = currentNode.value.parent.children;
+  const currentIndex = siblings.indexOf(currentNode.value);
+  if (currentIndex < siblings.length - 1) {
+    navigateToNode(siblings[currentIndex + 1]);
+    rebuildMovesDisplay();
+  }
+}
+
+function toggleAnalysisMode() {
+  isAnalysisMode.value = !isAnalysisMode.value;
 }
 
 function updateFen(newFen) {
@@ -80,6 +308,24 @@ function updateFen(newFen) {
 function handleLoadingChat(val) {
   isLoading.value = val;
 }
+
+// Handle moves made on the board
+function handleMoveAdded(moveData) {
+  if (addMove(moveData.move)) {
+    hasMoves.value = true;
+  }
+}
+
+// Mount/unmount handlers
+onMounted(() => {
+  document.addEventListener('keydown', handleKeyDown);
+  initializeTree();
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown);
+});
+
 watch(selectedMoveIndex, async () => {
   await nextTick()
   const el = moveRefs.value[selectedMoveIndex.value]
@@ -92,72 +338,92 @@ watch(selectedMoveIndex, async () => {
 <template>
   <div id="chessboard" class="d-flex justify-content-evenly mx-5">
     <div class="flex-item m-5 mt-2 p-3" :class="{ 'loading': isLoading }">
-      <ChessBoard :fenProp="fen" @updateFen="updateFen" @setMovesFromPGN="setMovesFromPGN" />
+      <ChessBoard :fenProp="fen" @updateFen="updateFen" @setMovesFromPGN="setMovesFromPGN" @moveAdded="handleMoveAdded" />
     </div>
 
-    <div id="chat-view" class="flex-item flex-fill m-5 rounded-4 rounded-top d-flex flex-column">
+    <div class="right-panel d-flex flex-fill m-5 gap-3">
+      <!-- MOVES PANEL -->
+      <div id="moves-panel" class="moves-section rounded-4 d-flex flex-column">
+        <!-- PLAYER INFO -->
+        <div v-if="hasPlayerInfo" id="playerInfo"
+          class="d-flex align-items-center justify-content-between p-3 text-light rounded-top"
+          style="background-color: #33312e; border-bottom: 1px solid #ffffff1e; max-height: 100px;">
 
-      <!-- PLAYER INFO -->
-      <div v-if="hasPlayerInfo" id="playerInfo"
-        class="d-flex align-items-center justify-content-between p-3 text-light rounded-top"
-        style="background-color: #33312e; border-bottom: 1px solid #ffffff1e; max-height: 100px;">
-
-        <!-- White Player -->
-        <div class="text-truncate text-center" style="flex: 1; padding-right: 2rem;">
-          <div class="fw-bold fs-6">White:</div>
-          <div class="fs-5 text-truncate">{{ whitePlayer }}</div>
-        </div>
-
-        <!-- Game Result  -->
-        <div class="flex-shrink-0 mx-auto px-3">
-          <div class="fs-3 fw-bold">{{ gameResult }}</div>
-        </div>
-
-        <!-- Black Player -->
-        <div class="text-truncate text-center" style="flex: 1; padding-left: 2rem;">
-          <div class="fw-bold fs-6">Black:</div>
-          <div class="fs-5 text-truncate">{{ blackPlayer }}</div>
-        </div>
-      </div>
-
-
-      <!-- MOVES -->
-      <div v-if="hasMoves" class=" fs-6 ">
-        <div id="moveHeader" class="d-flex justify-content-center align-items-center  py-1">
-          <div>
-            <button class="btn btn-sm text-white material-icons" :disabled="selectedMoveIndex === 0"
-              @click="backStart">first_page</button>
+          <!-- White Player -->
+          <div class="text-truncate text-center" style="flex: 1; padding-right: 1rem;">
+            <div class="fw-bold fs-6">White:</div>
+            <div class="fs-6 text-truncate">{{ whitePlayer }}</div>
           </div>
-          <div>
-            <button class="btn btn-sm text-white material-icons" :disabled="selectedMoveIndex === 0"
-              @click="backOneMove">arrow_back</button>
+
+          <!-- Game Result  -->
+          <div class="flex-shrink-0 mx-auto px-2">
+            <div class="fs-4 fw-bold">{{ gameResult }}</div>
           </div>
-          <span class=" fs-5 fw-bold text-center mx-5">Moves</span>
-          <div>
-            <button class="btn btn-sm text-white material-icons" :disabled="selectedMoveIndex === moves.length - 1"
-              @click="forwardOneMove">arrow_forward</button>
-          </div>
-          <div>
-            <button class="btn btn-sm text-white material-icons" :disabled="selectedMoveIndex === moves.length - 1"
-              @click="forwardEnd">last_page</button>
+
+          <!-- Black Player -->
+          <div class="text-truncate text-center" style="flex: 1; padding-left: 1rem;">
+            <div class="fw-bold fs-6">Black:</div>
+            <div class="fs-6 text-truncate">{{ blackPlayer }}</div>
           </div>
         </div>
-        <div class="pe-3">
-          <div id="moves" class="p-4 pt-1 pb-2">
-            <span :class="{ selected: index === selectedMoveIndex }" @click="onMoveClicked(index)"
-              style="cursor:pointer; " v-for="(move, index) in moves" :key="index" :ref="el => moveRefs[index] = el">
-              <span class="text-muted" v-if="index % 2 === 0">
-                {{ Math.floor(index / 2 + 1) }}.
-              </span>
-              <span class="colorize px-2 p-1" v-if="index % 2 === 0">{{ move }}</span>
-              <span class="colorize px-1 p-1 me-1" v-else>{{ move }}</span>
+
+        <!-- MOVES -->
+        <div class="fs-6 flex-fill">
+          <div id="moveHeader" class="d-flex justify-content-center align-items-center py-1">
+            <div>
+              <button class="btn btn-sm text-white material-icons" :disabled="!currentNode || !currentNode.parent"
+                @click="backStart">first_page</button>
+            </div>
+            <div>
+              <button class="btn btn-sm text-white material-icons" :disabled="!currentNode || !currentNode.parent"
+                @click="backOneMove">arrow_back</button>
+            </div>
+            <span class="fs-6 fw-bold text-center mx-2">
+              Moves
+              <span v-if="isAnalysisMode" class="badge bg-warning text-dark ms-1">Analysis</span>
             </span>
+            <div>
+              <button class="btn btn-sm text-white material-icons" :disabled="!currentNode || !currentNode.mainLine"
+                @click="forwardOneMove">arrow_forward</button>
+            </div>
+            <div>
+              <button class="btn btn-sm text-white material-icons" :disabled="!currentNode || !currentNode.mainLine"
+                @click="forwardEnd">last_page</button>
+            </div>
+            <div class="ms-1">
+              <button class="btn btn-sm" :class="isAnalysisMode ? 'btn-warning' : 'btn-outline-light'" 
+                @click="toggleAnalysisMode" title="Toggle Analysis Mode (Shift+Enter)">
+                <i class="material-icons" style="font-size: 18px;">analytics</i>
+              </button>
+            </div>
+          </div>
+          <div class="pe-2">
+            <div id="moves" class="p-3 pt-1 pb-2">
+              <div v-if="moveTree" class="move-tree">
+                <MoveTreeDisplay 
+                  :node="moveTree" 
+                  :currentNode="currentNode" 
+                  :selectedPath="selectedPath"
+                  @nodeClicked="navigateToNode"
+                  @addMove="addMove"
+                  :isAnalysisMode="isAnalysisMode"
+                />
+              </div>
+              <div v-if="!hasMoves && !isAnalysisMode" class="text-muted text-center">
+                Load a PGN or make moves on the board to begin analysis
+              </div>
+              <div v-if="!hasMoves && isAnalysisMode" class="text-muted text-center">
+                <i class="material-icons me-2">info</i>Analysis mode enabled - make moves on the board or use arrow keys to navigate
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- CHAT -->
-      <AIChat :fen="fen" @loadingChat="handleLoadingChat" />
+      <!-- CHAT PANEL -->
+      <div id="chat-view" class="chat-section flex-fill rounded-4 d-flex flex-column">
+        <AIChat :fen="fen" @loadingChat="handleLoadingChat" />
+      </div>
     </div>
   </div>
 </template>
@@ -167,6 +433,24 @@ watch(selectedMoveIndex, async () => {
 <style scoped>
 #chat-view {
   background-color: #262421;
+  height: 80vh;
+}
+
+.chat-section {
+  background-color: #262421;
+  min-width: 400px;
+  flex: 1;
+}
+
+.moves-section {
+  background-color: #262421;
+  min-width: 350px;
+  max-width: 500px;
+  height: 80vh;
+  flex: 0 0 auto;
+}
+
+.right-panel {
   height: 80vh;
 }
 
@@ -188,10 +472,15 @@ watch(selectedMoveIndex, async () => {
 }
 
 #moves {
-  max-height: 130px;
+  max-height: calc(80vh - 200px);
   overflow: auto;
   scroll-behavior: smooth;
   border-bottom: 1px solid #ffffff1e;
+  line-height: 1.6;
+}
+
+.move-tree {
+  font-family: 'Courier New', monospace;
 }
 
 #moveHeader {
@@ -214,7 +503,9 @@ watch(selectedMoveIndex, async () => {
 }
 
 /* Track */
-::-webkit-scrollbar-track {}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 
 /* Handle */
 ::-webkit-scrollbar-thumb {
