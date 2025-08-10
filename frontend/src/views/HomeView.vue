@@ -91,7 +91,7 @@ function buildTreeFromMoves(movesList) {
   selectedPath.value = current.getPath();
   
   // Fetch evaluations for all moves in the background
-  fetchEvaluationsForMoves();
+  // fetchEvaluationsForMoves();
   
   return current;
 }

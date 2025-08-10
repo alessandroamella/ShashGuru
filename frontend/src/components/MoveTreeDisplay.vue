@@ -124,7 +124,7 @@
       <div class="context-menu-section">
         <div class="context-menu-section-title">Capablanca (Strategic)</div>
         <div class="context-menu-item" @click="setShashinType('capablanca')">
-          <span class="shashin-icon">⚖️</span> Capablanca (=)
+          <span class="shashin-icon">⚖️</span> Capablanca
         </div>
       </div>
 
@@ -132,19 +132,19 @@
       <div class="context-menu-section">
         <div class="context-menu-section-title">Petrosian (Defense)</div>
         <div class="context-menu-item" @click="setShashinType('high-petrosian')">
-          <span class="shashin-icon">⬆️</span><span class="shashin-icon">🛡️</span> High Petrosian (-+)
+          <span class="shashin-icon">⬆️</span><span class="shashin-icon">🛡️</span> High Petrosian
         </div>
         <div class="context-menu-item" @click="setShashinType('high-middle-petrosian')">
-          <span class="shashin-icon">⬆️</span><span class="shashin-icon">🟰</span><span class="shashin-icon">🛡️</span> High-Middle Petrosian (-+ \ -/+)
+          <span class="shashin-icon">⬆️</span><span class="shashin-icon">🟰</span><span class="shashin-icon">🛡️</span> High-Middle Petrosian
         </div>
         <div class="context-menu-item" @click="setShashinType('middle-petrosian')">
-          <span class="shashin-icon">🟰</span><span class="shashin-icon">🛡️</span> Middle Petrosian (-/+)
+          <span class="shashin-icon">🟰</span><span class="shashin-icon">🛡️</span> Middle Petrosian
         </div>
         <div class="context-menu-item" @click="setShashinType('middle-low-petrosian')">
-          <span class="shashin-icon">🟰</span><span class="shashin-icon">⬇️</span><span class="shashin-icon">🛡️</span> Middle-Low Petrosian (-/+ \ =/+)
+          <span class="shashin-icon">🟰</span><span class="shashin-icon">⬇️</span><span class="shashin-icon">🛡️</span> Middle-Low Petrosian
         </div>
         <div class="context-menu-item" @click="setShashinType('low-petrosian')">
-          <span class="shashin-icon">⬇️</span><span class="shashin-icon">🛡️</span> Low Petrosian (=/+)
+          <span class="shashin-icon">⬇️</span><span class="shashin-icon">🛡️</span> Low Petrosian
         </div>
       </div>
 
