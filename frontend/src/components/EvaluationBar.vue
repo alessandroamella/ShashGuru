@@ -71,7 +71,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import axios from 'axios'
+import { EvaluationService } from '@/services/evaluationService.js'
 
 const props = defineProps({
   fen: {
@@ -210,14 +210,9 @@ const fetchEvaluation = async () => {
     // Store whose turn it is BEFORE making the request
     evaluationSideToMove.value = isWhiteToMove.value
     
-    const server_url = import.meta.env.BASE_URL + 'backend'
-    const response = await axios.post(`${server_url}/evaluation`, {
-      fen: props.fen,
-      depth: props.depth,
-      lines: 1 // Always use 1 line for the evaluation bar
-    })
-    console.log('Evaluation:', response)
-    evaluation.value = response.data.evaluation
+    const result = await EvaluationService.fetchEvaluation(props.fen, props.depth, 1)
+    console.log('Evaluation:', result)
+    evaluation.value = result
     console.log('Side to move when eval calculated:', evaluationSideToMove.value ? 'White' : 'Black', 'Raw score:', evaluation.value?.score, 'Adjusted score:', evaluationSideToMove.value ? evaluation.value?.score : -evaluation.value?.score)
   } catch (err) {
     console.error('Error fetching evaluation:', err)

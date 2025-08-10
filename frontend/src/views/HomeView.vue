@@ -4,10 +4,12 @@ import ChessBoard from '@/components/ChessBoard.vue';
 import AIChat from '@/components/AIChat.vue';
 import MoveTreeDisplay from '@/components/MoveTreeDisplay.vue';
 import { Chess } from 'chess.js';
+import { EvaluationService } from '@/services/evaluationService.js';
 
 const fen = ref('');
 const moves = ref([]);
 const isLoading = ref(false);
+const isLoadingEvaluations = ref(false);
 const hasPlayerInfo = ref(false);
 const hasMoves = ref(false)
 const selectedMoveIndex = ref(0);
@@ -87,6 +89,10 @@ function buildTreeFromMoves(movesList) {
   // Set current node to the last move
   currentNode.value = current;
   selectedPath.value = current.getPath();
+  
+  // Fetch evaluations for all moves in the background
+  fetchEvaluationsForMoves();
+  
   return current;
 }
 
@@ -108,10 +114,14 @@ function addMove(move) {
         if (currentNode.value.children.length === 0) {
           const newNode = currentNode.value.addChild(chessMove.san, chess.fen());
           currentNode.value = newNode;
+          // Fetch evaluation for the new move
+          fetchEvaluationForNode(newNode);
         } else {
           // Add as new variation
           const newNode = currentNode.value.addVariation(chessMove.san, chess.fen());
           currentNode.value = newNode;
+          // Fetch evaluation for the new move
+          fetchEvaluationForNode(newNode);
         }
       }
       selectedPath.value = currentNode.value.getPath();
@@ -123,6 +133,55 @@ function addMove(move) {
     console.error('Invalid move:', move, e);
   }
   return null;
+}
+
+// Set Shashin position type for a move
+function setShashinType(payload) {
+  const { node, type } = payload;
+  if (node) {
+    // Add the shashinType property to the node
+    node.shashinType = type;
+    console.log(`Set Shashin type "${type}" for move: ${node.move}`);
+  }
+}
+
+// Fetch evaluation for a position
+async function fetchEvaluationForNode(node) {
+  if (!node || !node.fen) return null;
+  
+  try {
+    const evaluation = await EvaluationService.fetchEvaluation(node.fen, 15, 1);
+    
+    if (evaluation) {
+      node.evaluation = evaluation;
+      console.log(`Fetched evaluation for move ${node.move}:`, evaluation);
+      return evaluation;
+    }
+  } catch (error) {
+    console.error(`Error fetching evaluation for move ${node.move}:`, error);
+  }
+  
+  return null;
+}
+
+// Fetch evaluations for all moves in the current line
+async function fetchEvaluationsForMoves() {
+  if (!moveTree.value) return;
+  
+  isLoadingEvaluations.value = true;
+  
+  try {
+    const mainLineMoves = getMainLineMoves();
+    
+    // Fetch evaluations for main line moves
+    for (const node of mainLineMoves) {
+      if (!node.evaluation) {
+        await fetchEvaluationForNode(node);
+      }
+    }
+  } finally {
+    isLoadingEvaluations.value = false;
+  }
 }
 
 // Navigate to a specific node
@@ -396,6 +455,15 @@ watch(selectedMoveIndex, async () => {
                 <i class="material-icons" style="font-size: 18px;">analytics</i>
               </button>
             </div>
+            <div class="ms-1">
+              <button class="btn btn-sm btn-outline-info" 
+                @click="fetchEvaluationsForMoves" 
+                :disabled="isLoadingEvaluations"
+                title="Fetch Evaluations & Auto-assign Shashin Types based on position evaluation">
+                <span v-if="isLoadingEvaluations" class="spinner-border spinner-border-sm me-1" role="status"></span>
+                <i class="material-icons" style="font-size: 18px;">assessment</i>
+              </button>
+            </div>
           </div>
           <div class="pe-2">
             <div id="moves" class="p-3 pt-1 pb-2">
@@ -406,6 +474,7 @@ watch(selectedMoveIndex, async () => {
                   :selectedPath="selectedPath"
                   @nodeClicked="navigateToNode"
                   @addMove="addMove"
+                  @setShashinType="setShashinType"
                   :isAnalysisMode="isAnalysisMode"
                 />
               </div>

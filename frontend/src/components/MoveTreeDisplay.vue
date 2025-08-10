@@ -20,7 +20,13 @@
               'variation': !isMainLineMove(moveItem.whiteMove)
             }"
             @click="$emit('nodeClicked', moveItem.whiteMove)"
+            @contextmenu.prevent="showContextMenu($event, moveItem.whiteMove)"
           >
+            <span class="move-icon" v-if="getShashinIcon(moveItem.whiteMove)">
+              {{ getShashinIcon(moveItem.whiteMove) }}
+              <span v-if="!moveItem.whiteMove.shashinType && moveItem.whiteMove.evaluation" 
+                    class="auto-indicator" title="Auto-detected from evaluation">•</span>
+            </span>
             {{ moveItem.whiteMove.move }}
           </span>
           <span v-else class="move-text empty">...</span>
@@ -35,7 +41,13 @@
               'variation': !isMainLineMove(moveItem.blackMove)
             }"
             @click="$emit('nodeClicked', moveItem.blackMove)"
+            @contextmenu.prevent="showContextMenu($event, moveItem.blackMove)"
           >
+            <span class="move-icon" v-if="getShashinIcon(moveItem.blackMove)">
+              {{ getShashinIcon(moveItem.blackMove) }}
+              <span v-if="!moveItem.blackMove.shashinType && moveItem.blackMove.evaluation" 
+                    class="auto-indicator" title="Auto-detected from evaluation">•</span>
+            </span>
             {{ moveItem.blackMove.move }}
           </span>
           <span v-else class="move-text empty">...</span>
@@ -53,6 +65,7 @@
               :isAnalysisMode="isAnalysisMode"
               @nodeClicked="$emit('nodeClicked', $event)"
               @addMove="$emit('addMove', $event)"
+              @setShashinType="$emit('setShashinType', $event)"
             />
             <!-- <span class="variation-marker">)</span> -->
           </div>
@@ -76,11 +89,91 @@
         </button>
       </div>
     </div>
+
+    <!-- Context Menu -->
+    <div 
+      v-if="showMenu" 
+      ref="contextMenu"
+      class="context-menu"
+      :style="{ top: menuPosition.y + 'px', left: menuPosition.x + 'px' }"
+      @click.stop
+    >
+      <div class="context-menu-header">Shashin Position Type</div>
+      
+      <!-- Tal (Attack) positions -->
+      <div class="context-menu-section">
+        <div class="context-menu-section-title">Tal (Attack)</div>
+        <div class="context-menu-item" @click="setShashinType('high-tal')">
+          <span class="shashin-icon">⚔️</span> High Tal (+-)
+        </div>
+        <div class="context-menu-item" @click="setShashinType('high-middle-tal')">
+          <span class="shashin-icon">⚔️</span> High-Middle Tal (+/- \ +-)
+        </div>
+        <div class="context-menu-item" @click="setShashinType('middle-tal')">
+          <span class="shashin-icon">⚔️</span> Middle Tal (+/-)
+        </div>
+        <div class="context-menu-item" @click="setShashinType('middle-low-tal')">
+          <span class="shashin-icon">⚔️</span> Middle-Low Tal (+/= \ +/-)
+        </div>
+        <div class="context-menu-item" @click="setShashinType('low-tal')">
+          <span class="shashin-icon">⚔️</span> Low Tal (+/=)
+        </div>
+      </div>
+
+      <!-- Capablanca (Strategic) positions -->
+      <div class="context-menu-section">
+        <div class="context-menu-section-title">Capablanca (Strategic)</div>
+        <div class="context-menu-item" @click="setShashinType('capablanca')">
+          <span class="shashin-icon">⚖️</span> Capablanca (=)
+        </div>
+      </div>
+
+      <!-- Petrosian (Defense) positions -->
+      <div class="context-menu-section">
+        <div class="context-menu-section-title">Petrosian (Defense)</div>
+        <div class="context-menu-item" @click="setShashinType('high-petrosian')">
+          <span class="shashin-icon">🛡️</span> High Petrosian (-+)
+        </div>
+        <div class="context-menu-item" @click="setShashinType('high-middle-petrosian')">
+          <span class="shashin-icon">🛡️</span> High-Middle Petrosian (-+ \ -/+)
+        </div>
+        <div class="context-menu-item" @click="setShashinType('middle-petrosian')">
+          <span class="shashin-icon">🛡️</span> Middle Petrosian (-/+)
+        </div>
+        <div class="context-menu-item" @click="setShashinType('middle-low-petrosian')">
+          <span class="shashin-icon">🛡️</span> Middle-Low Petrosian (-/+ \ =/+)
+        </div>
+        <div class="context-menu-item" @click="setShashinType('low-petrosian')">
+          <span class="shashin-icon">🛡️</span> Low Petrosian (=/+)
+        </div>
+      </div>
+
+      <!-- Chaos positions -->
+      <div class="context-menu-section">
+        <div class="context-menu-section-title">Chaos</div>
+        <div class="context-menu-item" @click="setShashinType('chaos-capablanca-petrosian')">
+          <span class="shashin-icon">🌀</span> Capablanca-Petrosian (↓)
+        </div>
+        <div class="context-menu-item" @click="setShashinType('chaos-capablanca-tal')">
+          <span class="shashin-icon">🌀</span> Capablanca-Tal (↑)
+        </div>
+        <div class="context-menu-item" @click="setShashinType('chaos-all')">
+          <span class="shashin-icon">🌀</span> Total Chaos (∞)
+        </div>
+      </div>
+
+      <!-- Clear option -->
+      <div class="context-menu-section">
+        <div class="context-menu-item" @click="setShashinType(null)">
+          <span class="shashin-icon">❌</span> Clear Shashin Type
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, nextTick, watch } from 'vue';
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
   node: {
@@ -105,10 +198,14 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['nodeClicked', 'addMove']);
+const emit = defineEmits(['nodeClicked', 'addMove', 'setShashinType']);
 
 const newMove = ref('');
 const moveInput = ref(null);
+const showMenu = ref(false);
+const menuPosition = ref({ x: 0, y: 0 });
+const selectedNode = ref(null);
+const contextMenu = ref(null);
 
 // Create display items that include both moves and variations in proper order
 const displayItems = computed(() => {
@@ -286,6 +383,188 @@ async function handleAddMove() {
   }
 }
 
+function showContextMenu(event, node) {
+  selectedNode.value = node;
+  showMenu.value = true;
+  
+  // Position the context menu
+  const rect = event.target.getBoundingClientRect();
+  menuPosition.value = {
+    x: event.clientX,
+    y: event.clientY
+  };
+  
+  // Ensure menu stays within viewport
+  nextTick(() => {
+    if (contextMenu.value) {
+      const menuRect = contextMenu.value.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      if (menuPosition.value.x + menuRect.width > viewportWidth) {
+        menuPosition.value.x = viewportWidth - menuRect.width - 10;
+      }
+      
+      if (menuPosition.value.y + menuRect.height > viewportHeight) {
+        menuPosition.value.y = viewportHeight - menuRect.height - 10;
+      }
+    }
+  });
+}
+
+function setShashinType(type) {
+  if (selectedNode.value) {
+    emit('setShashinType', { node: selectedNode.value, type });
+  }
+  hideContextMenu();
+}
+
+function hideContextMenu() {
+  showMenu.value = false;
+  selectedNode.value = null;
+}
+
+function getShashinIcon(node) {
+  if (!node) return '';
+  
+  // If manually set, use that
+  if (node.shashinType) {
+    const shashinIcons = {
+      'high-tal': '⚔️',
+      'high-middle-tal': '⚔️',
+      'middle-tal': '⚔️',
+      'middle-low-tal': '⚔️',
+      'low-tal': '⚔️',
+      'capablanca': '⚖️',
+      'high-petrosian': '🛡️',
+      'high-middle-petrosian': '🛡️',
+      'middle-petrosian': '🛡️',
+      'middle-low-petrosian': '🛡️',
+      'low-petrosian': '🛡️',
+      'chaos-capablanca-petrosian': '🌀',
+      'chaos-capablanca-tal': '🌀',
+      'chaos-all': '🌀'
+    };
+    return shashinIcons[node.shashinType] || '';
+  }
+  
+  // Auto-detect from evaluation if available
+  if (node.evaluation) {
+    const autoType = getAutoShashinType(node.evaluation);
+    if (autoType) {
+      const autoIcons = {
+        'high-tal': '⚔️',
+        'high-middle-tal': '⚔️',
+        'middle-tal': '⚔️',
+        'middle-low-tal': '⚔️',
+        'low-tal': '⚔️',
+        'capablanca': '⚖️',
+        'high-petrosian': '🛡️',
+        'high-middle-petrosian': '🛡️',
+        'middle-petrosian': '🛡️',
+        'middle-low-petrosian': '🛡️',
+        'low-petrosian': '🛡️',
+        'chaos-capablanca-petrosian': '🌀',
+        'chaos-capablanca-tal': '🌀',
+        'chaos-all': '🌀'
+      };
+      return autoIcons[autoType] || '';
+    }
+  }
+  
+  return '';
+}
+
+function getAutoShashinType(evaluation) {
+  if (!evaluation) return null;
+  
+  let winProb = 0;
+  let rawScore = 0;
+  
+  // Get the evaluation values and adjust for side to move if needed
+  if (evaluation.winprob !== null && evaluation.winprob !== undefined) {
+    // Direct win probability (0-1)
+    winProb = evaluation.winprob;
+    
+    // If it was black to move when evaluation was calculated, 
+    // we need to flip the win probability to show from white's perspective
+    if (evaluation.sideToMove === 'black') {
+      winProb = 1.0 - winProb;
+    }
+    
+    winProb = winProb * 100;
+  } else if (evaluation.mate !== null && evaluation.mate !== undefined) {
+    // Mate evaluation
+    let mateValue = evaluation.mate;
+    
+    // If it was black to move when evaluation was calculated, flip the mate value
+    if (evaluation.sideToMove === 'black') {
+      mateValue = -mateValue;
+    }
+    
+    winProb = mateValue > 0 ? 100 : 0;
+  } else if (evaluation.score !== null && evaluation.score !== undefined) {
+    // Convert centipawn evaluation to win probability
+    rawScore = evaluation.score;
+    
+    // If it was black to move when evaluation was calculated, flip the score
+    if (evaluation.sideToMove === 'black') {
+      rawScore = -rawScore;
+    }
+    
+    // Using a sigmoid-like function similar to what EvaluationBar uses
+    const normalizedScore = Math.max(-1000, Math.min(1000, rawScore));
+    winProb = Math.max(0, Math.min(100, 50 + (normalizedScore / 20)));
+  } else {
+    return null; // No evaluation data
+  }
+  
+  // Map win probability to Shashin types based on the table from ShashChess documentation
+  if (winProb >= 95) {
+    return 'high-tal'; // Winning: +- (95-100%)
+  } else if (winProb >= 90) {
+    return 'high-middle-tal'; // Dominant position: +/- \ +- (90-94%)
+  } else if (winProb >= 85) {
+    return 'middle-tal'; // Clear advantage: +/- (85-89%)
+  } else if (winProb >= 80) {
+    return 'middle-low-tal'; // Slightly better: +/= \ +/- (80-84%)
+  } else if (winProb >= 76) {
+    return 'low-tal'; // Slight advantage: +/= (76-79%)
+  } else if (winProb >= 51) {
+    return 'chaos-capablanca-tal'; // Initiative: ↑ (51-75%)
+  } else if (winProb >= 49 && winProb <= 51) {
+    return 'capablanca'; // Equal position: = (49-51% - narrow range for true equality)
+  } else if (winProb >= 25) {
+    return 'chaos-capablanca-petrosian'; // Opponent pressure: ↓ (25-49%)
+  } else if (winProb >= 21) {
+    return 'low-petrosian'; // Slight disadvantage: =/+ (21-24%)
+  } else if (winProb >= 16) {
+    return 'middle-low-petrosian'; // Significant disadvantage: -/+ \ =/+ (16-20%)
+  } else if (winProb >= 11) {
+    return 'middle-petrosian'; // Clear disadvantage: -/+ (11-15%)
+  } else if (winProb >= 6) {
+    return 'high-middle-petrosian'; // Decisive disadvantage: -+ \ -/+ (6-10%)
+  } else {
+    return 'high-petrosian'; // Winning (for opponent): -+ (0-5%)
+  }
+}
+
+// Click outside to close context menu
+function handleClickOutside(event) {
+  if (showMenu.value && contextMenu.value && !contextMenu.value.contains(event.target)) {
+    hideContextMenu();
+  }
+}
+
+// Add event listener for clicking outside
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
+
 // Focus input when analysis mode is enabled and this node is current
 watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree, analysisMode]) => {
   if (isInTree && analysisMode) {
@@ -344,6 +623,23 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
   margin-right: 0.35rem;
   flex-shrink: 0;
   font-size: 0.85em;
+  position: relative;
+}
+
+.move-text .move-icon {
+  font-size: 0.7em;
+  margin-right: 0.2rem;
+  opacity: 0.8;
+  position: relative;
+}
+
+.move-text .move-icon .auto-indicator {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  font-size: 0.6em;
+  color: #17a2b8;
+  opacity: 0.7;
 }
 
 .move-text:hover {
@@ -445,5 +741,74 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
 
 .variation-item .variation-item {
   margin-left: 1rem;
+}
+
+/* Context Menu Styles */
+.context-menu {
+  position: fixed;
+  background: #2d3748;
+  border: 1px solid #4a5568;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  min-width: 220px;
+  max-height: 400px;
+  overflow-y: auto;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.context-menu-header {
+  padding: 0.75rem 1rem;
+  background: #1a202c;
+  color: #e2e8f0;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-bottom: 1px solid #4a5568;
+  text-align: center;
+}
+
+.context-menu-section {
+  border-bottom: 1px solid #4a5568;
+}
+
+.context-menu-section:last-child {
+  border-bottom: none;
+}
+
+.context-menu-section-title {
+  padding: 0.5rem 1rem;
+  background: #374151;
+  color: #d1d5db;
+  font-weight: 500;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.context-menu-item {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  color: #e2e8f0;
+  font-size: 0.875rem;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.context-menu-item:hover {
+  background: #4a5568;
+  color: #fff;
+}
+
+.context-menu-item:active {
+  background: #2d3748;
+}
+
+.shashin-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  width: 1.2rem;
+  text-align: center;
 }
 </style>
