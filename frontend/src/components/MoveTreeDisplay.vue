@@ -69,6 +69,8 @@
               @addMove="$emit('addMove', $event)"
               @setShashinType="$emit('setShashinType', $event)"
               @setMoveEvaluation="$emit('setMoveEvaluation', $event)"
+              @promoteVariation="$emit('promoteVariation', $event)"
+              @deleteMove="$emit('deleteMove', $event)"
             />
             <!-- <span class="variation-marker">)</span> -->
           </div>
@@ -102,6 +104,20 @@
       @click.stop
     >
       <div class="context-menu-header">Move Annotations</div>
+      
+      <!-- Promotion section (only show for variations) -->
+      <div v-if="canPromoteToMainLine" class="context-menu-section">
+        <div class="context-menu-item promotion-item" @click="promoteToMainLine">
+          <span class="promotion-icon">⬆️</span> Promote to Main Line
+        </div>
+      </div>
+
+      <!-- Delete section (only show for moves that can be deleted) -->
+      <div v-if="canDeleteMove" class="context-menu-section">
+        <div class="context-menu-item delete-item" @click="deleteMove">
+          <span class="delete-icon">🗑️</span> Delete Move
+        </div>
+      </div>
       
       <!-- Move Evaluation section -->
       <div class="context-menu-section">
@@ -248,7 +264,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['nodeClicked', 'addMove', 'setShashinType', 'setMoveEvaluation']);
+const emit = defineEmits(['nodeClicked', 'addMove', 'setShashinType', 'setMoveEvaluation', 'promoteVariation', 'deleteMove']);
 
 const newMove = ref('');
 const moveInput = ref(null);
@@ -554,6 +570,46 @@ function getMoveEvaluationIcon(node) {
   };
 
   return evaluationIcons[node.moveEvaluation] || '';
+}
+
+// Check if the selected node can be promoted to main line
+const canPromoteToMainLine = computed(() => {
+  if (!selectedNode.value || !selectedNode.value.parent) return false;
+  
+  // Can only promote if this node is not already the main line
+  const isCurrentlyMainLine = selectedNode.value.parent.mainLine === selectedNode.value;
+  
+  // Debug logging
+  console.log('canPromoteToMainLine check:', {
+    nodeMove: selectedNode.value.move,
+    hasParent: !!selectedNode.value.parent,
+    isMainLine: isCurrentlyMainLine,
+    canPromote: !isCurrentlyMainLine
+  });
+  
+  return !isCurrentlyMainLine;
+});
+
+function promoteToMainLine() {
+  if (selectedNode.value && canPromoteToMainLine.value) {
+    emit('promoteVariation', selectedNode.value);
+  }
+  hideContextMenu();
+}
+
+// Check if the selected node can be deleted (not the root node)
+const canDeleteMove = computed(() => {
+  if (!selectedNode.value) return false;
+  
+  // Can't delete the root node (node with no move)
+  return !!selectedNode.value.move;
+});
+
+function deleteMove() {
+  if (selectedNode.value && canDeleteMove.value) {
+    emit('deleteMove', selectedNode.value);
+  }
+  hideContextMenu();
 }
 
 // Click outside to close context menu
@@ -878,6 +934,46 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
 }
 
 .move-eval-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  width: 1.5rem;
+  text-align: center;
+  line-height: 1;
+  display: inline-block;
+}
+
+.promotion-item {
+  background: #1e3a8a;
+  color: #dbeafe;
+  border-bottom: 1px solid #3b82f6;
+}
+
+.promotion-item:hover {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.promotion-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  width: 1.5rem;
+  text-align: center;
+  line-height: 1;
+  display: inline-block;
+}
+
+.delete-item {
+  background: #dc2626;
+  color: #fecaca;
+  border-bottom: 1px solid #ef4444;
+}
+
+.delete-item:hover {
+  background: #b91c1c;
+  color: #fff;
+}
+
+.delete-icon {
   font-size: 1rem;
   flex-shrink: 0;
   width: 1.5rem;

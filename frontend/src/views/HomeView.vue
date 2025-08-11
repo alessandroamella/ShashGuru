@@ -385,6 +385,107 @@ function handleMoveAdded(moveData) {
   }
 }
 
+// Promote a variation to main line
+function promoteVariation(nodeToPromote) {
+  console.log('promoteVariation called with node:', nodeToPromote);
+  
+  if (!nodeToPromote || !nodeToPromote.parent) {
+    console.log('Cannot promote: node has no parent');
+    return;
+  }
+  
+  const parent = nodeToPromote.parent;
+  const currentMainLine = parent.mainLine;
+  
+  console.log('Promotion details:', {
+    nodeToPromote: nodeToPromote.move,
+    currentMainLine: currentMainLine?.move,
+    parentChildren: parent.children.map(c => c.move)
+  });
+  
+  // Only proceed if this is actually a variation (not already main line)
+  if (currentMainLine === nodeToPromote) {
+    console.log('Node is already main line, nothing to do');
+    return;
+  }
+  
+  // Swap the main line with the variation
+  parent.mainLine = nodeToPromote;
+  
+  console.log(`Successfully promoted variation "${nodeToPromote.move}" to main line`);
+  
+  // Rebuild the moves display to reflect the new main line
+  rebuildMovesDisplay();
+  
+  // Update the selected path since the tree structure changed
+  selectedPath.value = currentNode.value.getPath();
+  
+  // Force a reactive update
+  moveTree.value = { ...moveTree.value };
+}
+
+// Delete a move and all subsequent moves
+function deleteMove(nodeToDelete) {
+  console.log('deleteMove called with node:', nodeToDelete);
+  
+  if (!nodeToDelete || !nodeToDelete.parent) {
+    console.log('Cannot delete: node has no parent (root node)');
+    return;
+  }
+  
+  const parent = nodeToDelete.parent;
+  
+  console.log('Delete details:', {
+    nodeToDelete: nodeToDelete.move,
+    parentMove: parent.move || 'root',
+    parentChildren: parent.children.map(c => c.move)
+  });
+  
+  // Remove the node from parent's children array
+  const childIndex = parent.children.indexOf(nodeToDelete);
+  if (childIndex !== -1) {
+    parent.children.splice(childIndex, 1);
+    
+    // If this was the main line, update the main line
+    if (parent.mainLine === nodeToDelete) {
+      // Set the main line to the next available child, or null if no children
+      parent.mainLine = parent.children.length > 0 ? parent.children[0] : null;
+    }
+    
+    console.log(`Successfully deleted move "${nodeToDelete.move}" and all subsequent moves`);
+    
+    // If the current node was the deleted node or a descendant, navigate to the parent
+    if (isNodeInDeletedSubtree(currentNode.value, nodeToDelete)) {
+      navigateToNode(parent);
+    }
+    
+    // Rebuild the moves display to reflect the changes
+    rebuildMovesDisplay();
+    
+    // Update the selected path since the tree structure changed
+    selectedPath.value = currentNode.value.getPath();
+    
+    // Force a reactive update
+    moveTree.value = { ...moveTree.value };
+  } else {
+    console.log('Error: Node not found in parent children');
+  }
+}
+
+// Check if a node is in the subtree that's being deleted
+function isNodeInDeletedSubtree(nodeToCheck, deletedRoot) {
+  if (!nodeToCheck || !deletedRoot) return false;
+  
+  let current = nodeToCheck;
+  while (current) {
+    if (current.id === deletedRoot.id) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
+}
+
 // Mount/unmount handlers
 onMounted(() => {
   document.addEventListener('keydown', handleKeyDown);
@@ -486,6 +587,8 @@ watch(selectedMoveIndex, async () => {
                   @addMove="addMove"
                   @setShashinType="setShashinType"
                   @setMoveEvaluation="setMoveEvaluation"
+                  @promoteVariation="promoteVariation"
+                  @deleteMove="deleteMove"
                   :isAnalysisMode="isAnalysisMode"
                 />
               </div>
