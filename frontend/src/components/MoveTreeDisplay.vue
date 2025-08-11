@@ -22,8 +22,9 @@
             @click="$emit('nodeClicked', moveItem.whiteMove)"
             @contextmenu.prevent="showContextMenu($event, moveItem.whiteMove)"
           >
-            <span class="move-icon" v-if="getShashinIcon(moveItem.whiteMove)">
-              {{ getShashinIcon(moveItem.whiteMove) }}
+            <span class="move-icon" v-if="getShashinIcon(moveItem.whiteMove) || getMoveEvaluationIcon(moveItem.whiteMove)">
+              <span v-if="getShashinIcon(moveItem.whiteMove)" class="shashin-part">{{ getShashinIcon(moveItem.whiteMove) }}</span>
+              <span v-if="getMoveEvaluationIcon(moveItem.whiteMove)" class="evaluation-part">{{ getMoveEvaluationIcon(moveItem.whiteMove) }}</span>
               <span v-if="!moveItem.whiteMove.shashinType && moveItem.whiteMove.evaluation" 
                     class="auto-indicator" title="Auto-detected from evaluation">•</span>
             </span>
@@ -43,8 +44,9 @@
             @click="$emit('nodeClicked', moveItem.blackMove)"
             @contextmenu.prevent="showContextMenu($event, moveItem.blackMove)"
           >
-            <span class="move-icon" v-if="getShashinIcon(moveItem.blackMove)">
-              {{ getShashinIcon(moveItem.blackMove) }}
+            <span class="move-icon" v-if="getShashinIcon(moveItem.blackMove) || getMoveEvaluationIcon(moveItem.blackMove)">
+              <span v-if="getShashinIcon(moveItem.blackMove)" class="shashin-part">{{ getShashinIcon(moveItem.blackMove) }}</span>
+              <span v-if="getMoveEvaluationIcon(moveItem.blackMove)" class="evaluation-part">{{ getMoveEvaluationIcon(moveItem.blackMove) }}</span>
               <span v-if="!moveItem.blackMove.shashinType && moveItem.blackMove.evaluation" 
                     class="auto-indicator" title="Auto-detected from evaluation">•</span>
             </span>
@@ -66,6 +68,7 @@
               @nodeClicked="$emit('nodeClicked', $event)"
               @addMove="$emit('addMove', $event)"
               @setShashinType="$emit('setShashinType', $event)"
+              @setMoveEvaluation="$emit('setMoveEvaluation', $event)"
             />
             <!-- <span class="variation-marker">)</span> -->
           </div>
@@ -98,68 +101,121 @@
       :style="{ top: menuPosition.y + 'px', left: menuPosition.x + 'px' }"
       @click.stop
     >
-      <div class="context-menu-header">Shashin Position Type</div>
+      <div class="context-menu-header">Move Annotations</div>
       
-      <!-- Tal (Attack) positions -->
+      <!-- Move Evaluation section -->
       <div class="context-menu-section">
-        <div class="context-menu-section-title">Tal (Attack)</div>
-        <div class="context-menu-item" @click="setShashinType('high-tal')">
-          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-tal' }) }}</span> High Tal
+        <div class="context-menu-section-title" @click="toggleSection('moveEvaluation')">
+          <span class="section-toggle-icon" :class="{ 'expanded': !sectionCollapsed.moveEvaluation }">▶</span>
+          Move Evaluation
         </div>
-        <div class="context-menu-item" @click="setShashinType('high-middle-tal')">
-          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-middle-tal' }) }}</span> High-Middle Tal
-        </div>
-        <div class="context-menu-item" @click="setShashinType('middle-tal')">
-          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-tal' }) }}</span> Middle Tal
-        </div>
-        <div class="context-menu-item" @click="setShashinType('middle-low-tal')">
-          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-low-tal' }) }}</span> Middle-Low Tal
-        </div>
-        <div class="context-menu-item" @click="setShashinType('low-tal')">
-          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'low-tal' }) }}</span> Low Tal
+        <div v-show="!sectionCollapsed.moveEvaluation" class="section-content">
+          <div class="context-menu-item" @click="setMoveEvaluation('brilliant')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('brilliant') }}</span> Brilliant
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('great')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('great') }}</span> Great
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('best')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('best') }}</span> Best
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('excellent')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('excellent') }}</span> Excellent
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('good')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('good') }}</span> Good
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('book')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('book') }}</span> Book Move
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('inaccuracy')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('inaccuracy') }}</span> Inaccuracy
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('mistake')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('mistake') }}</span> Mistake
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('blunder')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('blunder') }}</span> Blunder
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('missed-win')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('missed-win') }}</span> Missed Win
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation(null)">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon(null) }}</span> Clear Evaluation
+          </div>
         </div>
       </div>
 
-      <!-- Capablanca (Strategic) positions -->
+      <!-- Shashin Position Type section -->
       <div class="context-menu-section">
-        <div class="context-menu-section-title">Capablanca (Strategic)</div>
-        <div class="context-menu-item" @click="setShashinType('capablanca')">
-          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'capablanca' }) }}</span> Capablanca
+        <div class="context-menu-section-title" @click="toggleSection('shashinType')">
+          <span class="section-toggle-icon" :class="{ 'expanded': !sectionCollapsed.shashinType }">▶</span>
+          Shashin Position Type
         </div>
-      </div>
+        <div v-show="!sectionCollapsed.shashinType" class="section-content">
+        
+        <!-- Tal (Attack) positions -->
+        <div class="context-menu-subsection">
+          <div class="context-menu-subsection-title">Tal (Attack)</div>
+          <div class="context-menu-item" @click="setShashinType('high-tal')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-tal' }) }}</span> High Tal
+          </div>
+          <div class="context-menu-item" @click="setShashinType('high-middle-tal')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-middle-tal' }) }}</span> High-Middle Tal
+          </div>
+          <div class="context-menu-item" @click="setShashinType('middle-tal')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-tal' }) }}</span> Middle Tal
+          </div>
+          <div class="context-menu-item" @click="setShashinType('middle-low-tal')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-low-tal' }) }}</span> Middle-Low Tal
+          </div>
+          <div class="context-menu-item" @click="setShashinType('low-tal')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'low-tal' }) }}</span> Low Tal
+          </div>
+        </div>
 
-      <!-- Petrosian (Defense) positions -->
-      <div class="context-menu-section">
-        <div class="context-menu-section-title">Petrosian (Defense)</div>
-        <div class="context-menu-item" @click="setShashinType('high-petrosian')">
-          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-petrosian' }) }}</span> High Petrosian
+        <!-- Capablanca (Strategic) positions -->
+        <div class="context-menu-subsection">
+          <div class="context-menu-subsection-title">Capablanca (Strategic)</div>
+          <div class="context-menu-item" @click="setShashinType('capablanca')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'capablanca' }) }}</span> Capablanca
+          </div>
         </div>
-        <div class="context-menu-item" @click="setShashinType('high-middle-petrosian')">
-          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-middle-petrosian' }) }}</span> High-Middle Petrosian
-        </div>
-        <div class="context-menu-item" @click="setShashinType('middle-petrosian')">
-          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-petrosian' }) }}</span> Middle Petrosian
-        </div>
-        <div class="context-menu-item" @click="setShashinType('middle-low-petrosian')">
-          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-low-petrosian' }) }}</span> Middle-Low Petrosian
-        </div>
-        <div class="context-menu-item" @click="setShashinType('low-petrosian')">
-          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'low-petrosian' }) }}</span> Low Petrosian
-        </div>
-      </div>
 
-      <!-- Chaos positions -->
-      <div class="context-menu-section">
-        <div class="context-menu-section-title">Chaos</div>
-        <div class="context-menu-item" @click="setShashinType('chaos-all')">
-          <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'chaos-all' }) }}</span> Total Chaos
+        <!-- Petrosian (Defense) positions -->
+        <div class="context-menu-subsection">
+          <div class="context-menu-subsection-title">Petrosian (Defense)</div>
+          <div class="context-menu-item" @click="setShashinType('high-petrosian')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-petrosian' }) }}</span> High Petrosian
+          </div>
+          <div class="context-menu-item" @click="setShashinType('high-middle-petrosian')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-middle-petrosian' }) }}</span> High-Middle Petrosian
+          </div>
+          <div class="context-menu-item" @click="setShashinType('middle-petrosian')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-petrosian' }) }}</span> Middle Petrosian
+          </div>
+          <div class="context-menu-item" @click="setShashinType('middle-low-petrosian')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-low-petrosian' }) }}</span> Middle-Low Petrosian
+          </div>
+          <div class="context-menu-item" @click="setShashinType('low-petrosian')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'low-petrosian' }) }}</span> Low Petrosian
+          </div>
         </div>
-      </div>
 
-      <!-- Clear option -->
-      <div class="context-menu-section">
-        <div class="context-menu-item" @click="setShashinType(null)">
-          <span class="shashin-icon">❌</span> Clear Shashin Type
+        <!-- Chaos positions -->
+        <div class="context-menu-subsection">
+          <div class="context-menu-subsection-title">Chaos</div>
+          <div class="context-menu-item" @click="setShashinType('chaos-all')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'chaos-all' }) }}</span> Total Chaos
+          </div>
+        </div>
+
+        <!-- Clear option -->
+        <div class="context-menu-subsection">
+          <div class="context-menu-item" @click="setShashinType(null)">
+            <span class="shashin-icon">❌</span> Clear Shashin Type
+          </div>
+        </div>
         </div>
       </div>
     </div>
@@ -192,7 +248,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['nodeClicked', 'addMove', 'setShashinType']);
+const emit = defineEmits(['nodeClicked', 'addMove', 'setShashinType', 'setMoveEvaluation']);
 
 const newMove = ref('');
 const moveInput = ref(null);
@@ -200,6 +256,12 @@ const showMenu = ref(false);
 const menuPosition = ref({ x: 0, y: 0 });
 const selectedNode = ref(null);
 const contextMenu = ref(null);
+
+// Section collapse states
+const sectionCollapsed = ref({
+  moveEvaluation: true,
+  shashinType: true
+});
 
 // Create display items that include both moves and variations in proper order
 const displayItems = computed(() => {
@@ -381,6 +443,12 @@ function showContextMenu(event, node) {
   selectedNode.value = node;
   showMenu.value = true;
   
+  // Reset section collapsed states when opening menu
+  sectionCollapsed.value = {
+    moveEvaluation: true,
+    shashinType: true
+  };
+  
   // Position the context menu
   const rect = event.target.getBoundingClientRect();
   menuPosition.value = {
@@ -411,6 +479,17 @@ function setShashinType(type) {
     emit('setShashinType', { node: selectedNode.value, type });
   }
   hideContextMenu();
+}
+
+function setMoveEvaluation(type) {
+  if (selectedNode.value) {
+    emit('setMoveEvaluation', { node: selectedNode.value, type });
+  }
+  hideContextMenu();
+}
+
+function toggleSection(sectionName) {
+  sectionCollapsed.value[sectionName] = !sectionCollapsed.value[sectionName];
 }
 
 function hideContextMenu() {
@@ -456,7 +535,25 @@ function getAutoShashinType(evaluation) {
   if (!evaluation) return null;
   // TODO: Implement auto-detection logic
   return null; // Placeholder for now
+}
 
+function getMoveEvaluationIcon(node) {
+  if (!node || !node.moveEvaluation) return '';
+
+  const evaluationIcons = {
+    'brilliant': '✨',
+    'great': '❗',
+    'best': '✓',
+    'excellent': '⚡',
+    'good': '✓',
+    'book': '📖',
+    'inaccuracy': '⁈',
+    'mistake': '❓',
+    'blunder': '❌',
+    'missed-win': '💔'
+  };
+
+  return evaluationIcons[node.moveEvaluation] || '';
 }
 
 // Click outside to close context menu
@@ -544,6 +641,14 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
   display: inline-block;
   line-height: 1;
   white-space: nowrap;
+}
+
+.move-text .move-icon .shashin-part {
+  margin-right: 0.2rem;
+}
+
+.move-text .move-icon .evaluation-part {
+  margin-left: 0.1rem;
 }
 
 .move-text .move-icon .auto-indicator {
@@ -696,6 +801,49 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s ease;
+}
+
+.context-menu-section-title:hover {
+  background: #4a5568;
+}
+
+.section-toggle-icon {
+  font-size: 0.6rem;
+  transition: transform 0.2s ease;
+  transform: rotate(0deg);
+  color: #9ca3af;
+}
+
+.section-toggle-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.section-content {
+  animation: slideDown 0.2s ease;
+}
+
+.context-menu-subsection {
+  border-top: 1px solid #4a5568;
+}
+
+.context-menu-subsection:first-child {
+  border-top: none;
+}
+
+.context-menu-subsection-title {
+  padding: 0.4rem 1rem;
+  background: #4a5568;
+  color: #cbd5e0;
+  font-weight: 500;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .context-menu-item {
@@ -727,5 +875,25 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
   line-height: 1;
   white-space: nowrap;
   display: inline-block;
+}
+
+.move-eval-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  width: 1.5rem;
+  text-align: center;
+  line-height: 1;
+  display: inline-block;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
 }
 </style>

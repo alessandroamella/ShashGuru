@@ -145,6 +145,16 @@ function setShashinType(payload) {
   }
 }
 
+// Set move evaluation for a move
+function setMoveEvaluation(payload) {
+  const { node, type } = payload;
+  if (node) {
+    // Add the moveEvaluation property to the node
+    node.moveEvaluation = type;
+    console.log(`Set move evaluation "${type}" for move: ${node.move}`);
+  }
+}
+
 // Fetch evaluation for a position
 async function fetchEvaluationForNode(node) {
   if (!node || !node.fen) return null;
@@ -475,6 +485,7 @@ watch(selectedMoveIndex, async () => {
                   @nodeClicked="navigateToNode"
                   @addMove="addMove"
                   @setShashinType="setShashinType"
+                  @setMoveEvaluation="setMoveEvaluation"
                   :isAnalysisMode="isAnalysisMode"
                 />
               </div>
