@@ -1,15 +1,6 @@
 <template>
   <div class="move-tree-display">
-    <!-- Engine Lines Display -->
-    <EngineLines 
-      v-if="(engineEvaluation && engineEvaluation.lines && engineEvaluation.lines.length > 0) || isEvaluationLoading"
-      :lines="engineEvaluation.lines"
-      :max-lines="showLines"
-      :depth="engineEvaluation.depth"
-      :current-fen="props.currentNode?.fen || ''"
-      :loading="isEvaluationLoading"
-      @move-clicked="handleEngineLineMove"
-    />
+    
 
     <!-- Display moves in traditional chess notation format with inline variations -->
     <div v-if="props.node" class="moves-container">
@@ -283,17 +274,13 @@ const props = defineProps({
       lines: []
     })
   },
-  showLines: {
-    type: Number,
-    default: 3
-  },
   isEvaluationLoading: {
     type: Boolean,
     default: false
   }
 });
 
-const emit = defineEmits(['nodeClicked', 'addMove', 'setShashinType', 'setMoveEvaluation', 'promoteVariation', 'deleteMove', 'engineLineMove']);
+const emit = defineEmits(['nodeClicked', 'addMove', 'setShashinType', 'setMoveEvaluation', 'promoteVariation', 'deleteMove']);
 
 const newMove = ref('');
 const moveInput = ref(null);
@@ -484,10 +471,6 @@ async function handleAddMove() {
   }
 }
 
-function handleEngineLineMove(move, line, moveIndex) {
-  // Emit event to parent component to handle the engine line move
-  emit('engineLineMove', { move, line, moveIndex });
-}
 
 function showContextMenu(event, node) {
   selectedNode.value = node;

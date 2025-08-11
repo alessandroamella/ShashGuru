@@ -3,6 +3,7 @@ import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import ChessBoard from '@/components/ChessBoard.vue';
 import AIChat from '@/components/AIChat.vue';
 import MoveTreeDisplay from '@/components/MoveTreeDisplay.vue';
+import EngineLines from '@/components/EngineLines.vue';
 import { Chess } from 'chess.js';
 import { EvaluationService } from '@/services/evaluationService.js';
 
@@ -663,23 +664,37 @@ watch(selectedMoveIndex, async () => {
           </div>
           <div class="pe-2">
             <div id="moves" class="p-3 pt-1 pb-2">
+              <!-- Engine Lines Display -->
+              <EngineLines 
+                v-if="(engineEvaluation && engineEvaluation.lines && engineEvaluation.lines.length > 0) || isEngineEvaluationLoading"
+                :lines="engineEvaluation.lines"
+                :maxLines="showLines"
+                :depth="engineEvaluation.depth"
+                :currentFen="currentNode?.fen || ''"
+                :loading="isEngineEvaluationLoading"
+                @move-clicked="handleEngineLineMove"
+              />
               <div v-if="moveTree" class="move-tree">
-                <MoveTreeDisplay 
-                  :node="moveTree" 
-                  :currentNode="currentNode" 
-                  :selectedPath="selectedPath"
-                  :engineEvaluation="engineEvaluation"
-                  :showLines="showLines"
-                  :isEvaluationLoading="isEngineEvaluationLoading"
-                  @nodeClicked="navigateToNode"
-                  @addMove="addMove"
-                  @setShashinType="setShashinType"
-                  @setMoveEvaluation="setMoveEvaluation"
-                  @promoteVariation="promoteVariation"
-                  @deleteMove="deleteMove"
-                  @engineLineMove="handleEngineLineMove"
-                  :isAnalysisMode="isAnalysisMode"
-                />
+                <div class="moves-header">
+                  <span class="header-text">Moves</span>
+                </div> 
+                  <div class="moves-body">
+                  <MoveTreeDisplay 
+                    :node="moveTree" 
+                    :currentNode="currentNode" 
+                    :selectedPath="selectedPath"
+                    :engineEvaluation="engineEvaluation"
+                    :showLines="showLines"
+                    :isEvaluationLoading="isEngineEvaluationLoading"
+                    @nodeClicked="navigateToNode"
+                    @addMove="addMove"
+                    @setShashinType="setShashinType"
+                    @setMoveEvaluation="setMoveEvaluation"
+                    @promoteVariation="promoteVariation"
+                    @deleteMove="deleteMove"
+                    :isAnalysisMode="isAnalysisMode"
+                  />
+                </div>
               </div>
               <div v-if="!hasMoves && !isAnalysisMode" class="text-muted text-center">
                 Load a PGN or make moves on the board to begin analysis
@@ -720,6 +735,31 @@ watch(selectedMoveIndex, async () => {
   max-width: 500px;
   height: 80vh;
   flex: 0 0 auto;
+}
+
+.moves-header {
+  background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+  padding: 8px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #555;
+}
+
+.header-text {
+  color: #e8e8e8;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.moves-body {
+  background: rgba(42, 42, 42, 0.95);
+  border: 1px solid #444;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  padding: 8px 0;
 }
 
 .right-panel {
