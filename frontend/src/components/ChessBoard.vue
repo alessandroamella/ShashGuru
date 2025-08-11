@@ -6,7 +6,7 @@ import { Chess } from 'chess.js'
 import EvaluationBar from './EvaluationBar.vue'
 import EvaluationSettings from './EvaluationSettings.vue'
 
-const emit = defineEmits(['updateFen', 'setMovesFromPGN', 'moveAdded', 'engineEvaluationUpdate', 'showLinesUpdate', 'evaluationLoadingUpdate']);
+const emit = defineEmits(['updateFen', 'setMovesFromPGN', 'moveAdded', 'engineEvaluationUpdate', 'showLinesUpdate', 'evaluationLoadingUpdate', 'depthUpdate']);
 
 const boardAPI = ref(null);
 const chessboardHeight = ref(400); // Default height
@@ -21,6 +21,12 @@ const showLines = ref(3);
 watch(showLines, (newValue) => {
   emit('showLinesUpdate', newValue);
 });
+
+// Watch for evaluationDepth changes and emit to parent
+watch(evaluationDepth, (newValue) => {
+  emit('depthUpdate', newValue);
+});
+
 
 // Board orientation tracking
 const boardOrientation = ref('white'); // 'white' or 'black'

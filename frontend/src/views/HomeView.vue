@@ -35,6 +35,7 @@ const isEngineEvaluationLoading = ref(false);
 
 // UI settings
 const showLines = ref(3);
+const evaluationDepth = ref(20);
 
 // Tree node structure for moves
 class MoveNode {
@@ -175,8 +176,11 @@ async function fetchEvaluationForNode(node) {
   if (!node || !node.fen) return null;
   
   try {
-    const evaluation = await EvaluationService.fetchEvaluation(node.fen, 15, 1);
-    
+    // Get depth and lines from UI settings
+    const depth = evaluationDepth.value;
+    const lines = showLines.value || 1;
+    const evaluation = await EvaluationService.fetchEvaluation(node.fen, depth, lines);
+
     if (evaluation) {
       node.evaluation = evaluation;
       console.log(`Fetched evaluation for move ${node.move}:`, evaluation);
@@ -400,14 +404,17 @@ function handleMoveAdded(moveData) {
 
 // Handle engine evaluation updates
 function handleEngineEvaluationUpdate(evalData) {
-  console.log("AAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-  console.log("Evaluation Data:", evalData)
   engineEvaluation.value = evalData;
 }
 
 // Handle showLines setting updates
 function handleShowLinesUpdate(newValue) {
   showLines.value = newValue;
+}
+
+// Handle depth setting updates
+function handleDepthUpdate(newValue) {
+  evaluationDepth.value = newValue;
 }
 
 // Handle engine evaluation loading updates
@@ -594,6 +601,7 @@ watch(selectedMoveIndex, async () => {
         @engineEvaluationUpdate="handleEngineEvaluationUpdate"
         @showLinesUpdate="handleShowLinesUpdate"
         @evaluationLoadingUpdate="handleEvaluationLoadingUpdate"
+        @depthUpdate="handleDepthUpdate"
       />
     </div>
 
