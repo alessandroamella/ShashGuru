@@ -12,22 +12,36 @@ const boardAPI = ref(null);
 const chessboardHeight = ref(400); // Default height
 
 // Evaluation settings
-const evaluationDepth = ref(15);
+const evaluationDepth = ref(20);
 const evaluationEnabled = ref(true);
+const showBestMoveArrow = ref(true);
 
 // Board orientation tracking
 const boardOrientation = ref('white'); // 'white' or 'black'
+
+// Engine evaluation data
+const engineEvaluation = ref({
+  bestMove: null,
+  evaluation: null,
+  depth: 0,
+  lines: []
+});
 
 // Settings modal
 const showSettings = ref(false);
 
 const boardConfig = reactive({
   fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", // Starting FEN
-  coordinates: false,
+  coordinates: true,
   autoCastle: true,
   highlight: {
     lastMove: true,
     check: true,
+  },
+  events: {
+    select: () => {
+      drawBestMovesArrows();
+    }
   }
 });
 
@@ -72,6 +86,22 @@ function handleBoardCreated(api) {
   nextTick(() => {
     updateChessboardHeight();
   });
+}
+
+function drawBestMovesArrows(){
+  if (showBestMoveArrow.value && engineEvaluation.value?.bestMove) {
+      boardAPI.value?.drawMove(
+        engineEvaluation.value.bestMove.slice(0, 2),
+        engineEvaluation.value.bestMove.slice(2, 4),
+        'paleBlue',
+      );
+  }
+}
+
+// Method to receive evaluation data from EvaluationBar
+function handleEvaluationUpdate(evalData) {
+  engineEvaluation.value = evalData;
+  drawBestMovesArrows();
 }
 
 function updateChessboardHeight() {
@@ -226,6 +256,7 @@ onUnmounted(() => {
             :enabled="evaluationEnabled"
             :board-orientation="boardOrientation"
             :bar-height="chessboardHeight" 
+            @evaluation-update="handleEvaluationUpdate"
           />
         </div>
         <div class="chessboard-container-wrapper">
@@ -262,6 +293,7 @@ onUnmounted(() => {
           <EvaluationSettings 
             v-model:depth="evaluationDepth"
             v-model:enabled="evaluationEnabled"
+            v-model:showBestMove="showBestMoveArrow"
           />
         </div>
       </div>

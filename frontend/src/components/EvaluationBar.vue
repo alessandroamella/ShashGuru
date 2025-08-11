@@ -73,6 +73,8 @@
 import { ref, computed, watch } from 'vue'
 import { EvaluationService } from '@/services/evaluationService.js'
 
+const emit = defineEmits(['evaluation-update'])
+
 const props = defineProps({
   fen: {
     type: String,
@@ -80,7 +82,7 @@ const props = defineProps({
   },
   depth: {
     type: Number,
-    default: 15
+    default: 20
   },
   enabled: {
     type: Boolean,
@@ -200,6 +202,13 @@ const fetchEvaluation = async () => {
   if (!props.fen || !props.enabled) {
     evaluation.value = null
     evaluationSideToMove.value = true
+    // Emit null evaluation
+    emit('evaluation-update', {
+      bestMove: null,
+      evaluation: null,
+      depth: 0,
+      lines: []
+    })
     return
   }
   
@@ -214,11 +223,26 @@ const fetchEvaluation = async () => {
     console.log('Evaluation:', result)
     evaluation.value = result
     console.log('Side to move when eval calculated:', evaluationSideToMove.value ? 'White' : 'Black', 'Raw score:', evaluation.value?.score, 'Adjusted score:', evaluationSideToMove.value ? evaluation.value?.score : -evaluation.value?.score)
+    
+    // Emit evaluation data
+    emit('evaluation-update', {
+      bestMove: result?.move || null,
+      evaluation: result?.score || result?.mate || null,
+      depth: props.depth,
+      lines: result?.lines || []
+    })
   } catch (err) {
     console.error('Error fetching evaluation:', err)
     error.value = 'Failed to get evaluation'
     evaluation.value = null
     evaluationSideToMove.value = true
+    // Emit null evaluation on error
+    emit('evaluation-update', {
+      bestMove: null,
+      evaluation: null,
+      depth: 0,
+      lines: []
+    })
   } finally {
     loading.value = false
   }

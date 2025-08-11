@@ -23,12 +23,29 @@
         id="depth-slider"
         type="range" 
         v-model="localDepth" 
-        min="5" 
-        max="25" 
+        min="10" 
+        max="50" 
         step="1"
         class="setting-slider"
         @input="updateDepth"
       />
+    </div>
+    
+    <div v-if="localEnabled" class="setting-item">
+      <div class="setting-toggle">
+        <label class="setting-label">Show Best Move Arrow</label>
+        <div class="toggle-container-small">
+          <label class="toggle-switch-small">
+            <input 
+              type="checkbox" 
+              v-model="localShowBestMove"
+              @change="updateShowBestMove"
+            />
+            <span class="slider-small"></span>
+          </label>
+          <!-- <span class="toggle-label-small">{{ localShowBestMove ? 'ON' : 'OFF' }}</span> -->
+        </div>
+      </div>
     </div>
     
     <div v-if="localEnabled" class="setting-item">
@@ -48,18 +65,23 @@ import { ref, watch } from 'vue'
 const props = defineProps({
   depth: {
     type: Number,
-    default: 15
+    default: 20
   },
   enabled: {
+    type: Boolean,
+    default: true
+  },
+  showBestMove: {
     type: Boolean,
     default: true
   }
 })
 
-const emit = defineEmits(['update:depth', 'update:enabled'])
+const emit = defineEmits(['update:depth', 'update:enabled', 'update:showBestMove'])
 
 const localDepth = ref(props.depth)
 const localEnabled = ref(props.enabled)
+const localShowBestMove = ref(props.showBestMove)
 
 const updateDepth = () => {
   emit('update:depth', parseInt(localDepth.value))
@@ -69,9 +91,15 @@ const updateEnabled = () => {
   emit('update:enabled', localEnabled.value)
 }
 
+const updateShowBestMove = () => {
+  emit('update:showBestMove', localShowBestMove.value)
+}
+
 const resetToDefaults = () => {
-  localDepth.value = 15
+  localDepth.value = 20
+  localShowBestMove.value = true
   updateDepth()
+  updateShowBestMove()
 }
 
 // Watch for prop changes
@@ -81,6 +109,10 @@ watch(() => props.depth, (newVal) => {
 
 watch(() => props.enabled, (newVal) => {
   localEnabled.value = newVal
+})
+
+watch(() => props.showBestMove, (newVal) => {
+  localShowBestMove.value = newVal
 })
 </script>
 
