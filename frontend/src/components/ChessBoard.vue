@@ -380,14 +380,19 @@ onUnmounted(() => {
 }
 
 button.btn {
-  border-color: #f2f2f2;
+  background: #262421;
   color: #f2f2f2;
-  background-color: transparent;
-  transition: color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+  border: none;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 0.5em 1.2em;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
-button.btn:hover {
-  border-color: #cdd26a;
-  color: #cdd26a;
+button.btn:hover, button.btn:focus {
+  background: #cdd26a;
+  color: #232323;
+  box-shadow: 0 4px 16px rgba(205,210,106,0.15);
 }
 </style>
