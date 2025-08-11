@@ -1,5 +1,16 @@
 <template>
   <div class="move-tree-display">
+    <!-- Engine Lines Display -->
+    <EngineLines 
+      v-if="(engineEvaluation && engineEvaluation.lines && engineEvaluation.lines.length > 0) || isEvaluationLoading"
+      :lines="engineEvaluation.lines"
+      :max-lines="showLines"
+      :depth="engineEvaluation.depth"
+      :current-fen="props.currentNode?.fen || ''"
+      :loading="isEvaluationLoading"
+      @move-clicked="handleEngineLineMove"
+    />
+
     <!-- Display moves in traditional chess notation format with inline variations -->
     <div v-if="props.node" class="moves-container">
       <div v-for="(moveItem, index) in displayItems" :key="moveItem.id || index" 
@@ -240,6 +251,7 @@
 
 <script setup>
 import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue';
+import EngineLines from './EngineLines.vue';
 
 const props = defineProps({
   node: {
@@ -261,10 +273,27 @@ const props = defineProps({
   isAnalysisMode: {
     type: Boolean,
     default: false
+  },
+  engineEvaluation: {
+    type: Object,
+    default: () => ({
+      bestMove: null,
+      evaluation: null,
+      depth: 0,
+      lines: []
+    })
+  },
+  showLines: {
+    type: Number,
+    default: 3
+  },
+  isEvaluationLoading: {
+    type: Boolean,
+    default: false
   }
 });
 
-const emit = defineEmits(['nodeClicked', 'addMove', 'setShashinType', 'setMoveEvaluation', 'promoteVariation', 'deleteMove']);
+const emit = defineEmits(['nodeClicked', 'addMove', 'setShashinType', 'setMoveEvaluation', 'promoteVariation', 'deleteMove', 'engineLineMove']);
 
 const newMove = ref('');
 const moveInput = ref(null);
@@ -453,6 +482,11 @@ async function handleAddMove() {
     emit('addMove', newMove.value.trim());
     newMove.value = '';
   }
+}
+
+function handleEngineLineMove(move, line, moveIndex) {
+  // Emit event to parent component to handle the engine line move
+  emit('engineLineMove', { move, line, moveIndex });
 }
 
 function showContextMenu(event, node) {

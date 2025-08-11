@@ -47,6 +47,22 @@
         </div>
       </div>
     </div>
+
+    <div v-if="localEnabled" class="setting-item">
+      <label for="lines-slider" class="setting-label">
+        Show Lines: {{ localShowLines }}
+      </label>
+      <input 
+        id="lines-slider"
+        type="range" 
+        v-model="localShowLines" 
+        min="1" 
+        max="5" 
+        step="1"
+        class="setting-slider"
+        @input="updateShowLines"
+      />
+    </div>
     
     <div v-if="localEnabled" class="setting-item">
       <button 
@@ -74,14 +90,19 @@ const props = defineProps({
   showBestMove: {
     type: Boolean,
     default: true
+  },
+  showLines: {
+    type: Number,
+    default: 3
   }
 })
 
-const emit = defineEmits(['update:depth', 'update:enabled', 'update:showBestMove'])
+const emit = defineEmits(['update:depth', 'update:enabled', 'update:showBestMove', 'update:showLines'])
 
 const localDepth = ref(props.depth)
 const localEnabled = ref(props.enabled)
 const localShowBestMove = ref(props.showBestMove)
+const localShowLines = ref(props.showLines)
 
 const updateDepth = () => {
   emit('update:depth', parseInt(localDepth.value))
@@ -95,11 +116,17 @@ const updateShowBestMove = () => {
   emit('update:showBestMove', localShowBestMove.value)
 }
 
+const updateShowLines = () => {
+  emit('update:showLines', parseInt(localShowLines.value))
+}
+
 const resetToDefaults = () => {
   localDepth.value = 20
   localShowBestMove.value = true
+  localShowLines.value = 3
   updateDepth()
   updateShowBestMove()
+  updateShowLines()
 }
 
 // Watch for prop changes
@@ -113,6 +140,10 @@ watch(() => props.enabled, (newVal) => {
 
 watch(() => props.showBestMove, (newVal) => {
   localShowBestMove.value = newVal
+})
+
+watch(() => props.showLines, (newVal) => {
+  localShowLines.value = newVal
 })
 </script>
 

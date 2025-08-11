@@ -97,14 +97,21 @@ def evaluation():
         # Get engine analysis
         bestmoves, ponder = engineCommunication.call_engine(fen, depth, lines=lines)
         
-        # Format the response
+        # Format the response to match frontend expectations
         evaluation_data = {
-            "fen": fen,
-            "depth": depth,
-            "lines": lines,
-            "bestmoves": bestmoves[:lines],  # Limit to requested number of lines
-            "ponder": ponder,
-            "evaluation": bestmoves[0] if bestmoves else None  # Main evaluation from best move
+            "evaluation": {
+                "move": bestmoves[0]['move'] if bestmoves else None,
+                "score": bestmoves[0]['score'] if bestmoves else None,
+                "mate": bestmoves[0]['mate'] if bestmoves else None,
+                "winprob": bestmoves[0]['winprob'] if bestmoves else None,
+                "lines": [
+                    {
+                        "moves": ' '.join(move_data['pv_moves']) if 'pv_moves' in move_data and move_data['pv_moves'] else move_data['move'],
+                        "evaluation": move_data['score'] if move_data['score'] is not None else (1000 + move_data['mate'] if move_data['mate'] is not None else 0)
+                    }
+                    for move_data in bestmoves[:lines]
+                ]
+            }
         }
         
         return jsonify(evaluation_data)

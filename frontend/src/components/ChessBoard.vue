@@ -6,7 +6,7 @@ import { Chess } from 'chess.js'
 import EvaluationBar from './EvaluationBar.vue'
 import EvaluationSettings from './EvaluationSettings.vue'
 
-const emit = defineEmits(['updateFen', 'setMovesFromPGN', 'moveAdded']);
+const emit = defineEmits(['updateFen', 'setMovesFromPGN', 'moveAdded', 'engineEvaluationUpdate', 'showLinesUpdate', 'evaluationLoadingUpdate']);
 
 const boardAPI = ref(null);
 const chessboardHeight = ref(400); // Default height
@@ -15,6 +15,12 @@ const chessboardHeight = ref(400); // Default height
 const evaluationDepth = ref(20);
 const evaluationEnabled = ref(true);
 const showBestMoveArrow = ref(true);
+const showLines = ref(3);
+
+// Watch for showLines changes and emit to parent
+watch(showLines, (newValue) => {
+  emit('showLinesUpdate', newValue);
+});
 
 // Board orientation tracking
 const boardOrientation = ref('white'); // 'white' or 'black'
@@ -102,6 +108,13 @@ function drawBestMovesArrows(){
 function handleEvaluationUpdate(evalData) {
   engineEvaluation.value = evalData;
   drawBestMovesArrows();
+  // Emit the evaluation update to parent component
+  emit('engineEvaluationUpdate', evalData);
+}
+
+// Method to handle loading state from EvaluationBar
+function handleEvaluationLoadingUpdate(isLoading) {
+  emit('evaluationLoadingUpdate', isLoading);
 }
 
 function updateChessboardHeight() {
@@ -256,7 +269,9 @@ onUnmounted(() => {
             :enabled="evaluationEnabled"
             :board-orientation="boardOrientation"
             :bar-height="chessboardHeight" 
+            :show-lines="showLines"
             @evaluation-update="handleEvaluationUpdate"
+            @loading-update="handleEvaluationLoadingUpdate"
           />
         </div>
         <div class="chessboard-container-wrapper">
@@ -294,6 +309,7 @@ onUnmounted(() => {
             v-model:depth="evaluationDepth"
             v-model:enabled="evaluationEnabled"
             v-model:showBestMove="showBestMoveArrow"
+            v-model:showLines="showLines"
           />
         </div>
       </div>

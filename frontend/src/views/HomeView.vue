@@ -21,6 +21,20 @@ const currentNode = ref(null);
 const selectedPath = ref([]);
 const isAnalysisMode = ref(false);
 
+// Engine evaluation data
+const engineEvaluation = ref({
+  bestMove: null,
+  evaluation: null,
+  depth: 0,
+  lines: []
+});
+
+// Loading state for engine evaluation from chessboard
+const isEngineEvaluationLoading = ref(false);
+
+// UI settings
+const showLines = ref(3);
+
 // Tree node structure for moves
 class MoveNode {
   constructor(move = null, fen = null, parent = null) {
@@ -383,6 +397,34 @@ function handleMoveAdded(moveData) {
   }
 }
 
+// Handle engine evaluation updates
+function handleEngineEvaluationUpdate(evalData) {
+  console.log("AAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+  console.log("Evaluation Data:", evalData)
+  engineEvaluation.value = evalData;
+}
+
+// Handle showLines setting updates
+function handleShowLinesUpdate(newValue) {
+  showLines.value = newValue;
+}
+
+// Handle engine evaluation loading updates
+function handleEvaluationLoadingUpdate(isLoading) {
+  isEngineEvaluationLoading.value = isLoading;
+}
+
+// Handle engine line move clicks
+function handleEngineLineMove(payload) {
+  const { move, line, moveIndex } = payload;
+  console.log('Engine line move clicked:', move, line, moveIndex);
+  
+  // Add the move from the engine line
+  if (addMove(move)) {
+    hasMoves.value = true;
+  }
+}
+
 // Promote a variation to main line
 function promoteVariation(nodeToPromote) {
   console.log('promoteVariation called with node:', nodeToPromote);
@@ -543,7 +585,15 @@ watch(selectedMoveIndex, async () => {
 <template>
   <div id="chessboard" class="d-flex justify-content-evenly mx-5">
     <div class="flex-item m-5 mt-2 p-3" :class="{ 'loading': isLoading }">
-      <ChessBoard :fenProp="fen" @updateFen="updateFen" @setMovesFromPGN="setMovesFromPGN" @moveAdded="handleMoveAdded" />
+      <ChessBoard 
+        :fenProp="fen" 
+        @updateFen="updateFen" 
+        @setMovesFromPGN="setMovesFromPGN" 
+        @moveAdded="handleMoveAdded" 
+        @engineEvaluationUpdate="handleEngineEvaluationUpdate"
+        @showLinesUpdate="handleShowLinesUpdate"
+        @evaluationLoadingUpdate="handleEvaluationLoadingUpdate"
+      />
     </div>
 
     <div class="right-panel d-flex flex-fill m-5 gap-3">
@@ -618,12 +668,16 @@ watch(selectedMoveIndex, async () => {
                   :node="moveTree" 
                   :currentNode="currentNode" 
                   :selectedPath="selectedPath"
+                  :engineEvaluation="engineEvaluation"
+                  :showLines="showLines"
+                  :isEvaluationLoading="isEngineEvaluationLoading"
                   @nodeClicked="navigateToNode"
                   @addMove="addMove"
                   @setShashinType="setShashinType"
                   @setMoveEvaluation="setMoveEvaluation"
                   @promoteVariation="promoteVariation"
                   @deleteMove="deleteMove"
+                  @engineLineMove="handleEngineLineMove"
                   :isAnalysisMode="isAnalysisMode"
                 />
               </div>
