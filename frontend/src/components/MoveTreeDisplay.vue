@@ -1,5 +1,7 @@
 <template>
   <div class="move-tree-display">
+    
+
     <!-- Display moves in traditional chess notation format with inline variations -->
     <div v-if="props.node" class="moves-container">
       <div v-for="(moveItem, index) in displayItems" :key="moveItem.id || index" 
@@ -20,7 +22,14 @@
               'variation': !isMainLineMove(moveItem.whiteMove)
             }"
             @click="$emit('nodeClicked', moveItem.whiteMove)"
+            @contextmenu.prevent="showContextMenu($event, moveItem.whiteMove)"
           >
+            <span class="move-icon" v-if="getShashinIcon(moveItem.whiteMove) || getMoveEvaluationIcon(moveItem.whiteMove)">
+              <span v-if="getShashinIcon(moveItem.whiteMove)" class="shashin-part">{{ getShashinIcon(moveItem.whiteMove) }}</span>
+              <span v-if="getMoveEvaluationIcon(moveItem.whiteMove)" class="evaluation-part">{{ getMoveEvaluationIcon(moveItem.whiteMove) }}</span>
+              <span v-if="!moveItem.whiteMove.shashinType && moveItem.whiteMove.evaluation" 
+                    class="auto-indicator" title="Auto-detected from evaluation">•</span>
+            </span>
             {{ moveItem.whiteMove.move }}
           </span>
           <span v-else class="move-text empty">...</span>
@@ -35,7 +44,14 @@
               'variation': !isMainLineMove(moveItem.blackMove)
             }"
             @click="$emit('nodeClicked', moveItem.blackMove)"
+            @contextmenu.prevent="showContextMenu($event, moveItem.blackMove)"
           >
+            <span class="move-icon" v-if="getShashinIcon(moveItem.blackMove) || getMoveEvaluationIcon(moveItem.blackMove)">
+              <span v-if="getShashinIcon(moveItem.blackMove)" class="shashin-part">{{ getShashinIcon(moveItem.blackMove) }}</span>
+              <span v-if="getMoveEvaluationIcon(moveItem.blackMove)" class="evaluation-part">{{ getMoveEvaluationIcon(moveItem.blackMove) }}</span>
+              <span v-if="!moveItem.blackMove.shashinType && moveItem.blackMove.evaluation" 
+                    class="auto-indicator" title="Auto-detected from evaluation">•</span>
+            </span>
             {{ moveItem.blackMove.move }}
           </span>
           <span v-else class="move-text empty">...</span>
@@ -53,6 +69,10 @@
               :isAnalysisMode="isAnalysisMode"
               @nodeClicked="$emit('nodeClicked', $event)"
               @addMove="$emit('addMove', $event)"
+              @setShashinType="$emit('setShashinType', $event)"
+              @setMoveEvaluation="$emit('setMoveEvaluation', $event)"
+              @promoteVariation="$emit('promoteVariation', $event)"
+              @deleteMove="$emit('deleteMove', $event)"
             />
             <!-- <span class="variation-marker">)</span> -->
           </div>
@@ -76,11 +96,153 @@
         </button>
       </div>
     </div>
+
+    <!-- Context Menu -->
+    <div 
+      v-if="showMenu" 
+      ref="contextMenu"
+      class="context-menu"
+      :style="{ top: menuPosition.y + 'px', left: menuPosition.x + 'px' }"
+      @click.stop
+    >
+      <div class="context-menu-header">Move Annotations</div>
+      
+      <!-- Promotion section (only show for variations) -->
+      <div v-if="canPromoteToMainLine" class="context-menu-section">
+        <div class="context-menu-item promotion-item" @click="promoteToMainLine">
+          <span class="promotion-icon">⬆️</span> Promote to Main Line
+        </div>
+      </div>
+
+      <!-- Delete section (only show for moves that can be deleted) -->
+      <div v-if="canDeleteMove" class="context-menu-section">
+        <div class="context-menu-item delete-item" @click="deleteMove">
+          <span class="delete-icon">🗑️</span> Delete Move
+        </div>
+      </div>
+      
+      <!-- Move Evaluation section -->
+      <div class="context-menu-section">
+        <div class="context-menu-section-title" @click="toggleSection('moveEvaluation')">
+          <span class="section-toggle-icon" :class="{ 'expanded': !sectionCollapsed.moveEvaluation }">▶</span>
+          Move Evaluation
+        </div>
+        <div v-show="!sectionCollapsed.moveEvaluation" class="section-content">
+          <div class="context-menu-item" @click="setMoveEvaluation('brilliant')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('brilliant') }}</span> Brilliant
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('great')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('great') }}</span> Great
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('best')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('best') }}</span> Best
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('excellent')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('excellent') }}</span> Excellent
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('good')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('good') }}</span> Good
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('book')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('book') }}</span> Book Move
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('inaccuracy')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('inaccuracy') }}</span> Inaccuracy
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('mistake')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('mistake') }}</span> Mistake
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('blunder')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('blunder') }}</span> Blunder
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation('missed-win')">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon('missed-win') }}</span> Missed Win
+          </div>
+          <div class="context-menu-item" @click="setMoveEvaluation(null)">
+            <span class="move-eval-icon">{{ getMoveEvaluationIcon(null) }}</span> Clear Evaluation
+          </div>
+        </div>
+      </div>
+
+      <!-- Shashin Position Type section -->
+      <div class="context-menu-section">
+        <div class="context-menu-section-title" @click="toggleSection('shashinType')">
+          <span class="section-toggle-icon" :class="{ 'expanded': !sectionCollapsed.shashinType }">▶</span>
+          Shashin Position Type
+        </div>
+        <div v-show="!sectionCollapsed.shashinType" class="section-content">
+        
+        <!-- Tal (Attack) positions -->
+        <div class="context-menu-subsection">
+          <div class="context-menu-subsection-title">Tal (Attack)</div>
+          <div class="context-menu-item" @click="setShashinType('high-tal')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-tal' }) }}</span> High Tal
+          </div>
+          <div class="context-menu-item" @click="setShashinType('high-middle-tal')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-middle-tal' }) }}</span> High-Middle Tal
+          </div>
+          <div class="context-menu-item" @click="setShashinType('middle-tal')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-tal' }) }}</span> Middle Tal
+          </div>
+          <div class="context-menu-item" @click="setShashinType('middle-low-tal')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-low-tal' }) }}</span> Middle-Low Tal
+          </div>
+          <div class="context-menu-item" @click="setShashinType('low-tal')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'low-tal' }) }}</span> Low Tal
+          </div>
+        </div>
+
+        <!-- Capablanca (Strategic) positions -->
+        <div class="context-menu-subsection">
+          <div class="context-menu-subsection-title">Capablanca (Strategic)</div>
+          <div class="context-menu-item" @click="setShashinType('capablanca')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'capablanca' }) }}</span> Capablanca
+          </div>
+        </div>
+
+        <!-- Petrosian (Defense) positions -->
+        <div class="context-menu-subsection">
+          <div class="context-menu-subsection-title">Petrosian (Defense)</div>
+          <div class="context-menu-item" @click="setShashinType('high-petrosian')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-petrosian' }) }}</span> High Petrosian
+          </div>
+          <div class="context-menu-item" @click="setShashinType('high-middle-petrosian')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-middle-petrosian' }) }}</span> High-Middle Petrosian
+          </div>
+          <div class="context-menu-item" @click="setShashinType('middle-petrosian')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-petrosian' }) }}</span> Middle Petrosian
+          </div>
+          <div class="context-menu-item" @click="setShashinType('middle-low-petrosian')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-low-petrosian' }) }}</span> Middle-Low Petrosian
+          </div>
+          <div class="context-menu-item" @click="setShashinType('low-petrosian')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'low-petrosian' }) }}</span> Low Petrosian
+          </div>
+        </div>
+
+        <!-- Chaos positions -->
+        <div class="context-menu-subsection">
+          <div class="context-menu-subsection-title">Chaos</div>
+          <div class="context-menu-item" @click="setShashinType('chaos-all')">
+            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'chaos-all' }) }}</span> Total Chaos
+          </div>
+        </div>
+
+        <!-- Clear option -->
+        <div class="context-menu-subsection">
+          <div class="context-menu-item" @click="setShashinType(null)">
+            <span class="shashin-icon">❌</span> Clear Shashin Type
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, nextTick, watch } from 'vue';
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue';
+import EngineLines from './EngineLines.vue';
 
 const props = defineProps({
   node: {
@@ -102,13 +264,36 @@ const props = defineProps({
   isAnalysisMode: {
     type: Boolean,
     default: false
+  },
+  engineEvaluation: {
+    type: Object,
+    default: () => ({
+      bestMove: null,
+      evaluation: null,
+      depth: 0,
+      lines: []
+    })
+  },
+  isEvaluationLoading: {
+    type: Boolean,
+    default: false
   }
 });
 
-const emit = defineEmits(['nodeClicked', 'addMove']);
+const emit = defineEmits(['nodeClicked', 'addMove', 'setShashinType', 'setMoveEvaluation', 'promoteVariation', 'deleteMove']);
 
 const newMove = ref('');
 const moveInput = ref(null);
+const showMenu = ref(false);
+const menuPosition = ref({ x: 0, y: 0 });
+const selectedNode = ref(null);
+const contextMenu = ref(null);
+
+// Section collapse states
+const sectionCollapsed = ref({
+  moveEvaluation: true,
+  shashinType: true
+});
 
 // Create display items that include both moves and variations in proper order
 const displayItems = computed(() => {
@@ -286,6 +471,196 @@ async function handleAddMove() {
   }
 }
 
+
+function showContextMenu(event, node) {
+  selectedNode.value = node;
+  showMenu.value = true;
+  
+  // Reset section collapsed states when opening menu
+  sectionCollapsed.value = {
+    moveEvaluation: true,
+    shashinType: true
+  };
+  
+  // Position the context menu
+  const rect = event.target.getBoundingClientRect();
+  menuPosition.value = {
+    x: event.clientX,
+    y: event.clientY
+  };
+  
+  // Ensure menu stays within viewport
+  nextTick(() => {
+    if (contextMenu.value) {
+      const menuRect = contextMenu.value.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      if (menuPosition.value.x + menuRect.width > viewportWidth) {
+        menuPosition.value.x = viewportWidth - menuRect.width - 10;
+      }
+      
+      if (menuPosition.value.y + menuRect.height > viewportHeight) {
+        menuPosition.value.y = viewportHeight - menuRect.height - 10;
+      }
+    }
+  });
+}
+
+function setShashinType(type) {
+  if (selectedNode.value) {
+    emit('setShashinType', { node: selectedNode.value, type });
+  }
+  hideContextMenu();
+}
+
+function setMoveEvaluation(type) {
+  if (selectedNode.value) {
+    emit('setMoveEvaluation', { node: selectedNode.value, type });
+  }
+  hideContextMenu();
+}
+
+function toggleSection(sectionName) {
+  sectionCollapsed.value[sectionName] = !sectionCollapsed.value[sectionName];
+}
+
+function hideContextMenu() {
+  showMenu.value = false;
+  selectedNode.value = null;
+}
+
+function getShashinIcon(node) {
+  if (!node) return '';
+
+  const shashinIcons = {
+      'high-tal': '⬆️⚔️',
+      'high-middle-tal': '⚔️',
+      'middle-tal': '⚔️',
+      'middle-low-tal': '⬇️⚔️',
+      'low-tal': '⚔️',
+      'capablanca': '⚖️',
+      'high-petrosian': '⬆️🛡️',
+      'high-middle-petrosian': '⬆️🟰🛡️',
+      'middle-petrosian': '🟰🛡️',
+      'middle-low-petrosian': '🟰⬇️🛡️',
+      'low-petrosian': '⬇️🛡️',
+      'chaos-all': '🌀'
+    };
+  
+  // If manually set, use that
+  if (node.shashinType) {
+    return shashinIcons[node.shashinType] || '';
+  }
+  
+  // Auto-detect from evaluation if available
+  if (node.evaluation) {
+    const autoType = getAutoShashinType(node.evaluation);
+    if (autoType) {
+      return shashinIcons[autoType] || '';
+    }
+  }
+  
+  return '';
+}
+
+function getAutoShashinType(evaluation) {
+  if (!evaluation) return null;
+  // TODO: Implement auto-detection logic
+  return null; // Placeholder for now
+}
+
+function getMoveEvaluationIcon(node) {
+  if (!node || !node.moveEvaluation) return '';
+
+  const evaluationIcons = {
+    'brilliant': '✨',
+    'great': '❗',
+    'best': '✓',
+    'excellent': '⚡',
+    'good': '✓',
+    'book': '📖',
+    'inaccuracy': '⁈',
+    'mistake': '❓',
+    'blunder': '❌',
+    'missed-win': '💔'
+  };
+
+  return evaluationIcons[node.moveEvaluation] || '';
+}
+
+// Check if the selected node can be promoted to main line
+const canPromoteToMainLine = computed(() => {
+  if (!selectedNode.value || !selectedNode.value.parent) return false;
+  
+  // Can only promote if this node is not already the main line
+  const isCurrentlyMainLine = selectedNode.value.parent.mainLine === selectedNode.value;
+  
+  // Also check if this node is part of the main line path from root
+  const isOnMainLinePath = isNodeOnMainLinePath(selectedNode.value);
+  
+  // Can promote if it's either not the direct main line OR not on the main line path
+  const canPromote = !isCurrentlyMainLine || !isOnMainLinePath;
+  
+  return canPromote;
+});
+
+// Check if a node is on the main line path from root to end
+function isNodeOnMainLinePath(node) {
+  if (!node || !node.parent) return false;
+  
+  // Traverse up to find the root
+  let current = node;
+  while (current.parent) {
+    // If at any point this node is not the main line of its parent,
+    // then it's not on the main line path
+    if (current.parent.mainLine !== current) {
+      return false;
+    }
+    current = current.parent;
+  }
+  
+  return true;
+}
+
+function promoteToMainLine() {
+  if (selectedNode.value && canPromoteToMainLine.value) {
+    emit('promoteVariation', selectedNode.value);
+  }
+  hideContextMenu();
+}
+
+// Check if the selected node can be deleted (not the root node)
+const canDeleteMove = computed(() => {
+  if (!selectedNode.value) return false;
+  
+  // Can't delete the root node (node with no move)
+  return !!selectedNode.value.move;
+});
+
+function deleteMove() {
+  if (selectedNode.value && canDeleteMove.value) {
+    emit('deleteMove', selectedNode.value);
+  }
+  hideContextMenu();
+}
+
+// Click outside to close context menu
+function handleClickOutside(event) {
+  if (showMenu.value && contextMenu.value && !contextMenu.value.contains(event.target)) {
+    hideContextMenu();
+  }
+}
+
+// Add event listener for clicking outside
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
+
 // Focus input when analysis mode is enabled and this node is current
 watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree, analysisMode]) => {
   if (isInTree && analysisMode) {
@@ -344,6 +719,34 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
   margin-right: 0.35rem;
   flex-shrink: 0;
   font-size: 0.85em;
+  position: relative;
+}
+
+.move-text .move-icon {
+  font-size: 0.7em;
+  margin-right: 0.3rem;
+  opacity: 0.8;
+  position: relative;
+  display: inline-block;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.move-text .move-icon .shashin-part {
+  margin-right: 0.2rem;
+}
+
+.move-text .move-icon .evaluation-part {
+  margin-left: 0.1rem;
+}
+
+.move-text .move-icon .auto-indicator {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  font-size: 0.6em;
+  color: #17a2b8;
+  opacity: 0.7;
 }
 
 .move-text:hover {
@@ -445,5 +848,181 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
 
 .variation-item .variation-item {
   margin-left: 1rem;
+}
+
+/* Context Menu Styles */
+.context-menu {
+  position: fixed;
+  background: #2d3748;
+  border: 1px solid #4a5568;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  min-width: 220px;
+  max-height: 400px;
+  overflow-y: auto;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.context-menu-header {
+  padding: 0.75rem 1rem;
+  background: #1a202c;
+  color: #e2e8f0;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-bottom: 1px solid #4a5568;
+  text-align: center;
+}
+
+.context-menu-section {
+  border-bottom: 1px solid #4a5568;
+}
+
+.context-menu-section:last-child {
+  border-bottom: none;
+}
+
+.context-menu-section-title {
+  padding: 0.5rem 1rem;
+  background: #374151;
+  color: #d1d5db;
+  font-weight: 500;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s ease;
+}
+
+.context-menu-section-title:hover {
+  background: #4a5568;
+}
+
+.section-toggle-icon {
+  font-size: 0.6rem;
+  transition: transform 0.2s ease;
+  transform: rotate(0deg);
+  color: #9ca3af;
+}
+
+.section-toggle-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.section-content {
+  animation: slideDown 0.2s ease;
+}
+
+.context-menu-subsection {
+  border-top: 1px solid #4a5568;
+}
+
+.context-menu-subsection:first-child {
+  border-top: none;
+}
+
+.context-menu-subsection-title {
+  padding: 0.4rem 1rem;
+  background: #4a5568;
+  color: #cbd5e0;
+  font-weight: 500;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.context-menu-item {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  color: #e2e8f0;
+  font-size: 0.875rem;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.context-menu-item:hover {
+  background: #4a5568;
+  color: #fff;
+}
+
+.context-menu-item:active {
+  background: #2d3748;
+}
+
+.shashin-icon {
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  min-width: 2rem;
+  width: auto;
+  text-align: left;
+  line-height: 1;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.move-eval-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  width: 1.5rem;
+  text-align: center;
+  line-height: 1;
+  display: inline-block;
+}
+
+.promotion-item {
+  background: #1e3a8a;
+  color: #dbeafe;
+  border-bottom: 1px solid #3b82f6;
+}
+
+.promotion-item:hover {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.promotion-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  width: 1.5rem;
+  text-align: center;
+  line-height: 1;
+  display: inline-block;
+}
+
+.delete-item {
+  background: #dc2626;
+  color: #fecaca;
+  border-bottom: 1px solid #ef4444;
+}
+
+.delete-item:hover {
+  background: #b91c1c;
+  color: #fff;
+}
+
+.delete-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  width: 1.5rem;
+  text-align: center;
+  line-height: 1;
+  display: inline-block;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
 }
 </style>

@@ -6,28 +6,54 @@ import { Chess } from 'chess.js'
 import EvaluationBar from './EvaluationBar.vue'
 import EvaluationSettings from './EvaluationSettings.vue'
 
-const emit = defineEmits(['updateFen', 'setMovesFromPGN', 'moveAdded']);
+const emit = defineEmits(['updateFen', 'setMovesFromPGN', 'moveAdded', 'engineEvaluationUpdate', 'showLinesUpdate', 'evaluationLoadingUpdate', 'depthUpdate']);
 
 const boardAPI = ref(null);
 const chessboardHeight = ref(400); // Default height
 
 // Evaluation settings
-const evaluationDepth = ref(15);
+const evaluationDepth = ref(20);
 const evaluationEnabled = ref(true);
+const showBestMoveArrow = ref(true);
+const showLines = ref(3);
+
+// Watch for showLines changes and emit to parent
+watch(showLines, (newValue) => {
+  emit('showLinesUpdate', newValue);
+});
+
+// Watch for evaluationDepth changes and emit to parent
+watch(evaluationDepth, (newValue) => {
+  emit('depthUpdate', newValue);
+});
+
 
 // Board orientation tracking
 const boardOrientation = ref('white'); // 'white' or 'black'
+
+// Engine evaluation data
+const engineEvaluation = ref({
+  bestMove: null,
+  evaluation: null,
+  depth: 0,
+  lines: []
+});
 
 // Settings modal
 const showSettings = ref(false);
 
 const boardConfig = reactive({
   fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", // Starting FEN
-  coordinates: false,
+  coordinates: true,
   autoCastle: true,
   highlight: {
     lastMove: true,
     check: true,
+  },
+  events: {
+    select: () => {
+      drawBestMovesArrows();
+    }
   }
 });
 
@@ -72,6 +98,29 @@ function handleBoardCreated(api) {
   nextTick(() => {
     updateChessboardHeight();
   });
+}
+
+function drawBestMovesArrows(){
+  if (showBestMoveArrow.value && engineEvaluation.value?.bestMove) {
+      boardAPI.value?.drawMove(
+        engineEvaluation.value.bestMove.slice(0, 2),
+        engineEvaluation.value.bestMove.slice(2, 4),
+        'paleBlue',
+      );
+  }
+}
+
+// Method to receive evaluation data from EvaluationBar
+function handleEvaluationUpdate(evalData) {
+  engineEvaluation.value = evalData;
+  drawBestMovesArrows();
+  // Emit the evaluation update to parent component
+  emit('engineEvaluationUpdate', evalData);
+}
+
+// Method to handle loading state from EvaluationBar
+function handleEvaluationLoadingUpdate(isLoading) {
+  emit('evaluationLoadingUpdate', isLoading);
 }
 
 function updateChessboardHeight() {
@@ -226,6 +275,9 @@ onUnmounted(() => {
             :enabled="evaluationEnabled"
             :board-orientation="boardOrientation"
             :bar-height="chessboardHeight" 
+            :show-lines="showLines"
+            @evaluation-update="handleEvaluationUpdate"
+            @loading-update="handleEvaluationLoadingUpdate"
           />
         </div>
         <div class="chessboard-container-wrapper">
@@ -262,6 +314,8 @@ onUnmounted(() => {
           <EvaluationSettings 
             v-model:depth="evaluationDepth"
             v-model:enabled="evaluationEnabled"
+            v-model:showBestMove="showBestMoveArrow"
+            v-model:showLines="showLines"
           />
         </div>
       </div>
@@ -380,14 +434,19 @@ onUnmounted(() => {
 }
 
 button.btn {
-  border-color: #f2f2f2;
+  background: #262421;
   color: #f2f2f2;
-  background-color: transparent;
-  transition: color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+  border: none;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 0.5em 1.2em;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
-button.btn:hover {
-  border-color: #cdd26a;
-  color: #cdd26a;
+button.btn:hover, button.btn:focus {
+  background: #cdd26a;
+  color: #232323;
+  box-shadow: 0 4px 16px rgba(205,210,106,0.15);
 }
 </style>

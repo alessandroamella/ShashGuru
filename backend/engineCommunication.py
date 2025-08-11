@@ -54,7 +54,16 @@ def call_engine(fen, depth, engine_path=engine_path_NNUE, lines=3):
             try:
                 mv_idx = parts.index("multipv") + 1
                 pv_idx = parts.index("pv") + 1
-                move = parts[pv_idx]
+                
+                # Extract the full principal variation (all moves in the line)
+                pv_moves = []
+                for i in range(pv_idx, len(parts)):
+                    # Stop at the next engine info keyword or end of line
+                    if parts[i] in ['depth', 'seldepth', 'time', 'nodes', 'score', 'multipv', 'wdl']:
+                        break
+                    pv_moves.append(parts[i])
+                
+                first_move = pv_moves[0] if pv_moves else None
 
                 # Get score
                 score = None
@@ -79,7 +88,8 @@ def call_engine(fen, depth, engine_path=engine_path_NNUE, lines=3):
                     winprob = (w +(d/2))/10
 
                 bestmoves.insert(int(parts[mv_idx]) - 1, {
-                    'move': move,
+                    'move': first_move,
+                    'pv_moves': pv_moves,  # Full principal variation
                     'score': score,
                     'mate': mate,
                     'w': w,

@@ -20,11 +20,14 @@ import { RouterLink, RouterView } from 'vue-router'
 </template>
 
 <style scoped>
+
 nav  {
-  border-color: grey !important;
+  border-color: #aaa23a !important;
+  background: #232323 !important;
 }
 a {
-  color: #f2f2f2;
+  color: #e6e6b3;
+  transition: color 0.2s;
 }
 a:hover {
   color: #cdd26a;
@@ -35,7 +38,15 @@ a:focus {
 }
 #logo {
   font-weight: 900;
-  color: #aaa23a;
+  color: #cdd26a;
+  letter-spacing: 2px;
+  text-shadow: 1px 1px 4px #232323;
+}
+
+
+header h1 {
+  color: #cdd26a;
+  text-shadow: 1px 1px 6px #232323;
 }
 
 

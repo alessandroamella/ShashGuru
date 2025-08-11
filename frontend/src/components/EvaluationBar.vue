@@ -71,7 +71,9 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import axios from 'axios'
+import { EvaluationService } from '@/services/evaluationService.js'
+
+const emit = defineEmits(['evaluation-update', 'loading-update'])
 
 const props = defineProps({
   fen: {
@@ -80,7 +82,7 @@ const props = defineProps({
   },
   depth: {
     type: Number,
-    default: 15
+    default: 20
   },
   enabled: {
     type: Boolean,
@@ -93,6 +95,10 @@ const props = defineProps({
   barHeight: {
     type: Number,
     default: 800
+  },
+  showLines: {
+    type: Number,
+    default: 3
   }
 })
 
@@ -200,6 +206,14 @@ const fetchEvaluation = async () => {
   if (!props.fen || !props.enabled) {
     evaluation.value = null
     evaluationSideToMove.value = true
+    // Emit null evaluation and stop loading
+    emit('evaluation-update', {
+      bestMove: null,
+      evaluation: null,
+      depth: 0,
+      lines: []
+    })
+    emit('loading-update', false)
     return
   }
   
@@ -207,25 +221,40 @@ const fetchEvaluation = async () => {
     loading.value = true
     error.value = null
     
+    // Emit loading state
+    emit('loading-update', true)
+    
     // Store whose turn it is BEFORE making the request
     evaluationSideToMove.value = isWhiteToMove.value
     
-    const server_url = import.meta.env.BASE_URL + 'backend'
-    const response = await axios.post(`${server_url}/evaluation`, {
-      fen: props.fen,
-      depth: props.depth,
-      lines: 1 // Always use 1 line for the evaluation bar
-    })
-    console.log('Evaluation:', response)
-    evaluation.value = response.data.evaluation
+    const result = await EvaluationService.fetchEvaluation(props.fen, props.depth, props.showLines)
+    console.log('Evaluation:', result)
+    evaluation.value = result
     console.log('Side to move when eval calculated:', evaluationSideToMove.value ? 'White' : 'Black', 'Raw score:', evaluation.value?.score, 'Adjusted score:', evaluationSideToMove.value ? evaluation.value?.score : -evaluation.value?.score)
+    
+    // Emit evaluation data
+    emit('evaluation-update', {
+      bestMove: result?.move || null,
+      evaluation: result?.score || result?.mate || null,
+      depth: props.depth,
+      lines: result?.lines || []
+    })
   } catch (err) {
     console.error('Error fetching evaluation:', err)
     error.value = 'Failed to get evaluation'
     evaluation.value = null
     evaluationSideToMove.value = true
+    // Emit null evaluation on error
+    emit('evaluation-update', {
+      bestMove: null,
+      evaluation: null,
+      depth: 0,
+      lines: []
+    })
   } finally {
     loading.value = false
+    // Emit loading state
+    emit('loading-update', false)
   }
 }
 
@@ -233,6 +262,7 @@ const fetchEvaluation = async () => {
 watch(() => props.fen, fetchEvaluation, { immediate: true })
 watch(() => props.depth, fetchEvaluation)
 watch(() => props.enabled, fetchEvaluation)
+watch(() => props.showLines, fetchEvaluation)
 watch(() => props.boardOrientation, () => {
   // No need to refetch, just update the display
 })

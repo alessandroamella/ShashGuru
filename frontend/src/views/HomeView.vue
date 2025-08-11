@@ -3,11 +3,14 @@ import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import ChessBoard from '@/components/ChessBoard.vue';
 import AIChat from '@/components/AIChat.vue';
 import MoveTreeDisplay from '@/components/MoveTreeDisplay.vue';
+import EngineLines from '@/components/EngineLines.vue';
 import { Chess } from 'chess.js';
+import { EvaluationService } from '@/services/evaluationService.js';
 
 const fen = ref('');
 const moves = ref([]);
 const isLoading = ref(false);
+const isLoadingEvaluations = ref(false);
 const hasPlayerInfo = ref(false);
 const hasMoves = ref(false)
 const selectedMoveIndex = ref(0);
@@ -18,6 +21,21 @@ const moveTree = ref(null);
 const currentNode = ref(null);
 const selectedPath = ref([]);
 const isAnalysisMode = ref(false);
+
+// Engine evaluation data
+const engineEvaluation = ref({
+  bestMove: null,
+  evaluation: null,
+  depth: 0,
+  lines: []
+});
+
+// Loading state for engine evaluation from chessboard
+const isEngineEvaluationLoading = ref(false);
+
+// UI settings
+const showLines = ref(3);
+const evaluationDepth = ref(20);
 
 // Tree node structure for moves
 class MoveNode {
@@ -87,6 +105,10 @@ function buildTreeFromMoves(movesList) {
   // Set current node to the last move
   currentNode.value = current;
   selectedPath.value = current.getPath();
+  
+  // Fetch evaluations for all moves in the background
+  fetchEvaluationsForMoves();
+  
   return current;
 }
 
@@ -108,10 +130,14 @@ function addMove(move) {
         if (currentNode.value.children.length === 0) {
           const newNode = currentNode.value.addChild(chessMove.san, chess.fen());
           currentNode.value = newNode;
+          // Fetch evaluation for the new move
+          fetchEvaluationForNode(newNode);
         } else {
           // Add as new variation
           const newNode = currentNode.value.addVariation(chessMove.san, chess.fen());
           currentNode.value = newNode;
+          // Fetch evaluation for the new move
+          fetchEvaluationForNode(newNode);
         }
       }
       selectedPath.value = currentNode.value.getPath();
@@ -123,6 +149,71 @@ function addMove(move) {
     console.error('Invalid move:', move, e);
   }
   return null;
+}
+
+// Set Shashin position type for a move
+function setShashinType(payload) {
+  const { node, type } = payload;
+  if (node) {
+    // Add the shashinType property to the node
+    node.shashinType = type;
+    console.log(`Set Shashin type "${type}" for move: ${node.move}`);
+  }
+}
+
+// Set move evaluation for a move
+function setMoveEvaluation(payload) {
+  const { node, type } = payload;
+  if (node) {
+    // Add the moveEvaluation property to the node
+    node.moveEvaluation = type;
+    console.log(`Set move evaluation "${type}" for move: ${node.move}`);
+  }
+}
+
+// Fetch evaluation for a position
+async function fetchEvaluationForNode(node) {
+  if (!node || !node.fen) return null;
+  
+  try {
+    // Get depth and lines from UI settings
+    const depth = evaluationDepth.value;
+    const lines = showLines.value || 1;
+    const evaluation = await EvaluationService.fetchEvaluation(node.fen, depth, lines);
+
+    if (evaluation) {
+      node.evaluation = evaluation;
+      console.log(`Fetched evaluation for move ${node.move}:`, evaluation);
+      return evaluation;
+    }
+  } catch (error) {
+    console.error(`Error fetching evaluation for move ${node.move}:`, error);
+  }
+  
+  return null;
+}
+
+// Fetch evaluations for all moves in the current line
+async function fetchEvaluationsForMoves() {
+  if (!moveTree.value) return;
+  
+  isLoadingEvaluations.value = true;
+  
+  try {
+    const mainLineMoves = getMainLineMoves();
+    
+    // Fetch evaluations for main line moves in parallel
+    await Promise.all(
+      mainLineMoves.map(node => {
+      if (!node.evaluation) {
+        return fetchEvaluationForNode(node);
+      }
+      return Promise.resolve();
+      })
+    );
+  } finally {
+    isLoadingEvaluations.value = false;
+  }
 }
 
 // Navigate to a specific node
@@ -175,13 +266,8 @@ function setMovesFromPGN(payload) {
     gameResult.value = payload.headers.Result || '-';
   }
 
-  // Navigate to the end of the game
-  const mainLine = getMainLineMoves();
-  if (mainLine.length > 0) {
-    navigateToNode(mainLine[mainLine.length - 1]);
-  } else {
-    navigateToNode(moveTree.value);
-  }
+  // Navigate to the beginning of the game, before any move
+  navigateToNode(moveTree.value);
   
   rebuildMovesDisplay();
 }
@@ -316,6 +402,175 @@ function handleMoveAdded(moveData) {
   }
 }
 
+// Handle engine evaluation updates
+function handleEngineEvaluationUpdate(evalData) {
+  engineEvaluation.value = evalData;
+}
+
+// Handle showLines setting updates
+function handleShowLinesUpdate(newValue) {
+  showLines.value = newValue;
+}
+
+// Handle depth setting updates
+function handleDepthUpdate(newValue) {
+  evaluationDepth.value = newValue;
+}
+
+// Handle engine evaluation loading updates
+function handleEvaluationLoadingUpdate(isLoading) {
+  isEngineEvaluationLoading.value = isLoading;
+}
+
+// Handle engine line move clicks
+function handleEngineLineMove(payload) {
+  const { move, line, moveIndex } = payload;
+  console.log('Engine line move clicked:', move, line, moveIndex);
+  
+  // Add the move from the engine line
+  if (addMove(move)) {
+    hasMoves.value = true;
+  }
+}
+
+// Promote a variation to main line
+function promoteVariation(nodeToPromote) {
+  console.log('promoteVariation called with node:', nodeToPromote);
+  
+  if (!nodeToPromote || !nodeToPromote.parent) {
+    console.log('Cannot promote: node has no parent');
+    return;
+  }
+  
+  const parent = nodeToPromote.parent;
+  const currentMainLine = parent.mainLine;
+  
+  console.log('Promotion details:', {
+    nodeToPromote: nodeToPromote.move,
+    currentMainLine: currentMainLine?.move,
+    parentChildren: parent.children.map(c => c.move)
+  });
+  
+  // Find the root of the variation that contains this node
+  let variationRoot = nodeToPromote;
+  
+  // If this node is already the direct main line, we need to find the variation root
+  // by looking at the parent's children to find which one is not the main line
+  if (currentMainLine === nodeToPromote) {
+    // This shouldn't happen if our canPromoteToMainLine logic is correct
+    console.log('Node is already main line, checking path...');
+    
+    // Check if this is actually on the main line path from root
+    if (isNodeOnMainLinePath(nodeToPromote)) {
+      console.log('Node is on main line path, cannot promote');
+      return;
+    }
+  }
+  
+  // Find the actual variation root by traversing up until we find a node
+  // whose parent's main line is different
+  while (variationRoot.parent && variationRoot.parent.mainLine === variationRoot) {
+    variationRoot = variationRoot.parent;
+  }
+  
+  // Now variationRoot should be the first move of the variation
+  if (variationRoot.parent) {
+    const variationParent = variationRoot.parent;
+    const oldMainLine = variationParent.mainLine;
+    
+    // Swap the main line
+    variationParent.mainLine = variationRoot;
+    
+    console.log(`Successfully promoted variation starting with "${variationRoot.move}" to main line`);
+  } else {
+    // Direct promotion case
+    parent.mainLine = nodeToPromote;
+    console.log(`Successfully promoted move "${nodeToPromote.move}" to main line`);
+  }
+  
+  // Rebuild the moves display to reflect the new main line
+  rebuildMovesDisplay();
+  
+  // Update the selected path since the tree structure changed
+  selectedPath.value = currentNode.value.getPath();
+  
+  // Force a reactive update
+  moveTree.value = { ...moveTree.value };
+}
+
+// Check if a node is on the main line path from root to end
+function isNodeOnMainLinePath(node) {
+  if (!node || !node.parent) return true; // Root is always on main line path
+  
+  // Traverse up to check if this node is always the main line of its parent
+  let current = node;
+  while (current.parent) {
+    if (current.parent.mainLine !== current) {
+      return false;
+    }
+    current = current.parent;
+  }
+  
+  return true;
+}
+
+// Delete a move and all subsequent moves
+function deleteMove(nodeToDelete) {
+  console.log('deleteMove called with node:', nodeToDelete);
+  
+  if (!nodeToDelete || !nodeToDelete.parent) {
+    console.log('Cannot delete: node has no parent (root node)');
+    return;
+  }
+  
+  const parent = nodeToDelete.parent;
+
+  
+  // Remove the node from parent's children array
+  const childIndex = parent.children.indexOf(nodeToDelete);
+  if (childIndex !== -1) {
+    parent.children.splice(childIndex, 1);
+    
+    // If this was the main line, update the main line
+    if (parent.mainLine === nodeToDelete) {
+      // Set the main line to the next available child, or null if no children
+      parent.mainLine = parent.children.length > 0 ? parent.children[0] : null;
+    }
+    
+    console.log(`Successfully deleted move "${nodeToDelete.move}" and all subsequent moves`);
+    
+    // If the current node was the deleted node or a descendant, navigate to the parent
+    if (isNodeInDeletedSubtree(currentNode.value, nodeToDelete)) {
+      navigateToNode(parent);
+    }
+    
+    // Rebuild the moves display to reflect the changes
+    rebuildMovesDisplay();
+    
+    // Update the selected path since the tree structure changed
+    selectedPath.value = currentNode.value.getPath();
+    
+    // Force a reactive update
+    moveTree.value = { ...moveTree.value };
+  } else {
+    console.log('Error: Node not found in parent children');
+  }
+}
+
+// Check if a node is in the subtree that's being deleted
+function isNodeInDeletedSubtree(nodeToCheck, deletedRoot) {
+  if (!nodeToCheck || !deletedRoot) return false;
+  
+  let current = nodeToCheck;
+  while (current) {
+    if (current.id === deletedRoot.id) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
+}
+
 // Mount/unmount handlers
 onMounted(() => {
   document.addEventListener('keydown', handleKeyDown);
@@ -338,7 +593,16 @@ watch(selectedMoveIndex, async () => {
 <template>
   <div id="chessboard" class="d-flex justify-content-evenly mx-5">
     <div class="flex-item m-5 mt-2 p-3" :class="{ 'loading': isLoading }">
-      <ChessBoard :fenProp="fen" @updateFen="updateFen" @setMovesFromPGN="setMovesFromPGN" @moveAdded="handleMoveAdded" />
+      <ChessBoard 
+        :fenProp="fen" 
+        @updateFen="updateFen" 
+        @setMovesFromPGN="setMovesFromPGN" 
+        @moveAdded="handleMoveAdded" 
+        @engineEvaluationUpdate="handleEngineEvaluationUpdate"
+        @showLinesUpdate="handleShowLinesUpdate"
+        @evaluationLoadingUpdate="handleEvaluationLoadingUpdate"
+        @depthUpdate="handleDepthUpdate"
+      />
     </div>
 
     <div class="right-panel d-flex flex-fill m-5 gap-3">
@@ -396,18 +660,49 @@ watch(selectedMoveIndex, async () => {
                 <i class="material-icons" style="font-size: 18px;">analytics</i>
               </button>
             </div>
+            <div class="ms-1">
+              <button class="btn btn-sm btn-outline-info" 
+                @click="fetchEvaluationsForMoves" 
+                :disabled="isLoadingEvaluations"
+                title="Fetch Evaluations">
+                <span v-if="isLoadingEvaluations" class="spinner-border spinner-border-sm me-1" role="status"></span>
+                <i class="material-icons" style="font-size: 18px;">assessment</i>
+              </button>
+            </div>
           </div>
           <div class="pe-2">
             <div id="moves" class="p-3 pt-1 pb-2">
+              <!-- Engine Lines Display -->
+              <EngineLines 
+                v-if="(engineEvaluation && engineEvaluation.lines && engineEvaluation.lines.length > 0) || isEngineEvaluationLoading"
+                :lines="engineEvaluation.lines"
+                :maxLines="showLines"
+                :depth="engineEvaluation.depth"
+                :currentFen="currentNode?.fen || ''"
+                :loading="isEngineEvaluationLoading"
+                @move-clicked="handleEngineLineMove"
+              />
               <div v-if="moveTree" class="move-tree">
-                <MoveTreeDisplay 
-                  :node="moveTree" 
-                  :currentNode="currentNode" 
-                  :selectedPath="selectedPath"
-                  @nodeClicked="navigateToNode"
-                  @addMove="addMove"
-                  :isAnalysisMode="isAnalysisMode"
-                />
+                <div class="moves-header">
+                  <span class="header-text">Moves</span>
+                </div> 
+                  <div class="moves-body">
+                  <MoveTreeDisplay 
+                    :node="moveTree" 
+                    :currentNode="currentNode" 
+                    :selectedPath="selectedPath"
+                    :engineEvaluation="engineEvaluation"
+                    :showLines="showLines"
+                    :isEvaluationLoading="isEngineEvaluationLoading"
+                    @nodeClicked="navigateToNode"
+                    @addMove="addMove"
+                    @setShashinType="setShashinType"
+                    @setMoveEvaluation="setMoveEvaluation"
+                    @promoteVariation="promoteVariation"
+                    @deleteMove="deleteMove"
+                    :isAnalysisMode="isAnalysisMode"
+                  />
+                </div>
               </div>
               <div v-if="!hasMoves && !isAnalysisMode" class="text-muted text-center">
                 Load a PGN or make moves on the board to begin analysis
@@ -448,6 +743,31 @@ watch(selectedMoveIndex, async () => {
   max-width: 500px;
   height: 80vh;
   flex: 0 0 auto;
+}
+
+.moves-header {
+  background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+  padding: 8px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #555;
+}
+
+.header-text {
+  color: #e8e8e8;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.moves-body {
+  background: rgba(42, 42, 42, 0.95);
+  border: 1px solid #444;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  padding: 8px 0;
 }
 
 .right-panel {
