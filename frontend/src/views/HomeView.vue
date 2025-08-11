@@ -183,12 +183,15 @@ async function fetchEvaluationsForMoves() {
   try {
     const mainLineMoves = getMainLineMoves();
     
-    // Fetch evaluations for main line moves
-    for (const node of mainLineMoves) {
+    // Fetch evaluations for main line moves in parallel
+    await Promise.all(
+      mainLineMoves.map(node => {
       if (!node.evaluation) {
-        await fetchEvaluationForNode(node);
+        return fetchEvaluationForNode(node);
       }
-    }
+      return Promise.resolve();
+      })
+    );
   } finally {
     isLoadingEvaluations.value = false;
   }
