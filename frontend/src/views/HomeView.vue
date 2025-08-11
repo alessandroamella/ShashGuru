@@ -403,16 +403,42 @@ function promoteVariation(nodeToPromote) {
     parentChildren: parent.children.map(c => c.move)
   });
   
-  // Only proceed if this is actually a variation (not already main line)
+  // Find the root of the variation that contains this node
+  let variationRoot = nodeToPromote;
+  
+  // If this node is already the direct main line, we need to find the variation root
+  // by looking at the parent's children to find which one is not the main line
   if (currentMainLine === nodeToPromote) {
-    console.log('Node is already main line, nothing to do');
-    return;
+    // This shouldn't happen if our canPromoteToMainLine logic is correct
+    console.log('Node is already main line, checking path...');
+    
+    // Check if this is actually on the main line path from root
+    if (isNodeOnMainLinePath(nodeToPromote)) {
+      console.log('Node is on main line path, cannot promote');
+      return;
+    }
   }
   
-  // Swap the main line with the variation
-  parent.mainLine = nodeToPromote;
+  // Find the actual variation root by traversing up until we find a node
+  // whose parent's main line is different
+  while (variationRoot.parent && variationRoot.parent.mainLine === variationRoot) {
+    variationRoot = variationRoot.parent;
+  }
   
-  console.log(`Successfully promoted variation "${nodeToPromote.move}" to main line`);
+  // Now variationRoot should be the first move of the variation
+  if (variationRoot.parent) {
+    const variationParent = variationRoot.parent;
+    const oldMainLine = variationParent.mainLine;
+    
+    // Swap the main line
+    variationParent.mainLine = variationRoot;
+    
+    console.log(`Successfully promoted variation starting with "${variationRoot.move}" to main line`);
+  } else {
+    // Direct promotion case
+    parent.mainLine = nodeToPromote;
+    console.log(`Successfully promoted move "${nodeToPromote.move}" to main line`);
+  }
   
   // Rebuild the moves display to reflect the new main line
   rebuildMovesDisplay();
@@ -422,6 +448,22 @@ function promoteVariation(nodeToPromote) {
   
   // Force a reactive update
   moveTree.value = { ...moveTree.value };
+}
+
+// Check if a node is on the main line path from root to end
+function isNodeOnMainLinePath(node) {
+  if (!node || !node.parent) return true; // Root is always on main line path
+  
+  // Traverse up to check if this node is always the main line of its parent
+  let current = node;
+  while (current.parent) {
+    if (current.parent.mainLine !== current) {
+      return false;
+    }
+    current = current.parent;
+  }
+  
+  return true;
 }
 
 // Delete a move and all subsequent moves
@@ -434,12 +476,7 @@ function deleteMove(nodeToDelete) {
   }
   
   const parent = nodeToDelete.parent;
-  
-  console.log('Delete details:', {
-    nodeToDelete: nodeToDelete.move,
-    parentMove: parent.move || 'root',
-    parentChildren: parent.children.map(c => c.move)
-  });
+
   
   // Remove the node from parent's children array
   const childIndex = parent.children.indexOf(nodeToDelete);

@@ -579,16 +579,32 @@ const canPromoteToMainLine = computed(() => {
   // Can only promote if this node is not already the main line
   const isCurrentlyMainLine = selectedNode.value.parent.mainLine === selectedNode.value;
   
-  // Debug logging
-  console.log('canPromoteToMainLine check:', {
-    nodeMove: selectedNode.value.move,
-    hasParent: !!selectedNode.value.parent,
-    isMainLine: isCurrentlyMainLine,
-    canPromote: !isCurrentlyMainLine
-  });
+  // Also check if this node is part of the main line path from root
+  const isOnMainLinePath = isNodeOnMainLinePath(selectedNode.value);
   
-  return !isCurrentlyMainLine;
+  // Can promote if it's either not the direct main line OR not on the main line path
+  const canPromote = !isCurrentlyMainLine || !isOnMainLinePath;
+  
+  return canPromote;
 });
+
+// Check if a node is on the main line path from root to end
+function isNodeOnMainLinePath(node) {
+  if (!node || !node.parent) return false;
+  
+  // Traverse up to find the root
+  let current = node;
+  while (current.parent) {
+    // If at any point this node is not the main line of its parent,
+    // then it's not on the main line path
+    if (current.parent.mainLine !== current) {
+      return false;
+    }
+    current = current.parent;
+  }
+  
+  return true;
+}
 
 function promoteToMainLine() {
   if (selectedNode.value && canPromoteToMainLine.value) {
