@@ -5,15 +5,13 @@
       <span class="depth-badge">Depth {{ depth }}</span>
     </div>
     
-    <!-- Loading overlay -->
-    <div v-if="loading" class="loading-container">
-      <div class="loading-overlay">
+    <div class="lines-container">
+      <!-- Loading overlay on top of content -->
+      <div v-if="loading" class="loading-overlay">
         <div class="spinner"></div>
         <span class="loading-text">Analyzing...</span>
       </div>
-    </div>
-    
-    <div v-else class="lines-container">
+      
       <div 
         v-for="(line, index) in displayLines" 
         :key="index"
@@ -240,20 +238,25 @@ function getEvaluationClass(evaluation) {
 }
 
 .lines-container {
+  position: relative; /* Allow absolute positioning of overlay */
   padding: 8px 0;
-}
-
-.loading-container {
-  padding: 20px 0;
+  min-height: 120px; /* Ensure consistent height */
 }
 
 .loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(42, 42, 42, 0.9); /* Semi-transparent background */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 20px;
+  z-index: 10; /* Ensure it's on top */
+  border-radius: 0 0 8px 8px; /* Match container border radius */
 }
 
 .spinner {
