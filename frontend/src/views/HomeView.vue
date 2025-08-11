@@ -247,13 +247,8 @@ function setMovesFromPGN(payload) {
     gameResult.value = payload.headers.Result || '-';
   }
 
-  // Navigate to the end of the game
-  const mainLine = getMainLineMoves();
-  if (mainLine.length > 0) {
-    navigateToNode(mainLine[mainLine.length - 1]);
-  } else {
-    navigateToNode(moveTree.value);
-  }
+  // Navigate to the beginning of the game, before any move
+  navigateToNode(moveTree.value);
   
   rebuildMovesDisplay();
 }
