@@ -18,6 +18,7 @@
 import subprocess
 import os
 import chess
+import chess.pgn
 import logging
 import threading
 import queue
@@ -245,13 +246,15 @@ def call_engine(fen, depth, engine_path=engine_path_NNUE, lines=3):
     Returns:
         Tuple of (bestmoves, ponder)
     """
-    # Try to get from cache first
+    # Get cache instance
     cache = get_cache()
+    
+    # Try to get from cache first
     cached_result = cache.get_cached_analysis(fen, depth, lines)
     if cached_result:
         return cached_result
     
-    # Cache miss - compute analysis
+    # Cache miss - compute analysis using engine pool
     logging.info(f"Computing engine analysis for FEN: {fen}, depth: {depth}, lines: {lines}")
     
     # Get engine from pool
@@ -263,30 +266,214 @@ def call_engine(fen, depth, engine_path=engine_path_NNUE, lines=3):
         return [], None
     
     try:
-        # Set position and options
-        engine.stdin.write(f'position fen {fen}\n')
+        # Set MultiPV option for this analysis
+        engine.stdin.write(f'setoption name MultiPV value {lines}\n')
+        engine.stdin.flush()
+        engine.stdin.write('isready\n')
+        engine.stdin.flush()
+
+        
+        # Use the unified analysis function
+        result = _analyze_position_with_engine(engine, fen, depth, lines)
+        
+        # Store result in cache
+        if result[0]:  # Only cache if we got valid results
+            cache.store_analysis(fen, depth, lines, result[0], result[1])
+        
+        return result
+        
+    except Exception as e:
+        logging.error(f"Error during engine analysis: {e}")
+        return [], None
+        
+    finally:
+        # Return engine to pool
+        pool.return_engine(engine)
+
+
+def analyze_pgn_game(pgn_moves, depth=15, lines=3, engine_path=engine_path_NNUE):
+    """
+    Analyze a complete PGN game using a dedicated engine instance.
+    More efficient for game analysis as the engine can reuse hash table entries.
+    
+    Args:
+        pgn_moves: List of moves in PGN format or PGN string
+        depth: Analysis depth for each position
+        lines: Number of analysis lines (MultiPV)
+        engine_path: Path to chess engine executable
+        
+    Returns:
+        List of analysis results for each position
+    """
+    import chess.pgn
+    import io
+    
+    logging.info(f"Starting PGN game analysis with depth {depth}, lines {lines}")
+    
+    # Parse PGN moves
+    if isinstance(pgn_moves, str):
+        # If it's a PGN string, parse it
+        pgn_io = io.StringIO(pgn_moves)
+        game = chess.pgn.read_game(pgn_io)
+        if game is None:
+            raise ValueError("Invalid PGN format")
+        moves = [move.uci() for move in game.mainline_moves()]
+    elif isinstance(pgn_moves, list):
+        # If it's a list of moves, use directly
+        moves = pgn_moves
+    else:
+        raise ValueError("pgn_moves must be a PGN string or list of moves")
+    
+    # Create dedicated engine with optimized settings
+    engine = None
+    try:
+        logging.info(f"Creating dedicated engine for PGN analysis: {engine_path}")
+        engine = subprocess.Popen([engine_path],
+                                 stdin=subprocess.PIPE,
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE,
+                                 universal_newlines=True)
+        
+        # Initialize UCI protocol
+        engine.stdin.write('uci\n')
+        engine.stdin.flush()
+        
+        # Set optimized options for game analysis
+        engine.stdin.write('setoption name Threads value 256\n')
+        engine.stdin.flush()
+        engine.stdin.write('setoption name Hash value 64\n')
         engine.stdin.flush()
         engine.stdin.write(f'setoption name MultiPV value {lines}\n')
+        engine.stdin.flush()
+        
+        # Send isready and wait for readyok
+        engine.stdin.write('isready\n')
+        engine.stdin.flush()
+        
+        # Analyze each position in the game
+        board = chess.Board()
+        analysis_results = []
+        cache = get_cache()
+        
+        # Analyze starting position
+        starting_analysis = _analyze_position_with_cache_and_engine(cache, engine, board.fen(), depth, lines)
+        analysis_results.append({
+            'move_number': 0,
+            'fen': board.fen(),
+            'move_played': None,
+            'analysis': starting_analysis
+        })
+        
+        # Analyze each move
+        for move_num, move_uci in enumerate(moves, 1):
+            try:
+                move = chess.Move.from_uci(move_uci)
+                if move not in board.legal_moves:
+                    logging.warning(f"Illegal move {move_uci} at position {move_num}")
+                    continue
+                
+                board.push(move)
+                
+                # Analyze the position after the move
+                analysis = _analyze_position_with_cache_and_engine(cache, engine, board.fen(), depth, lines)
+                
+                analysis_results.append({
+                    'move_number': move_num,
+                    'fen': board.fen(),
+                    'move_played': move_uci,
+                    'analysis': analysis
+                })
+                
+                logging.info(f"Analyzed move {move_num}/{len(moves)}: {move_uci}")
+                
+            except Exception as e:
+                logging.error(f"Error analyzing move {move_num} ({move_uci}): {e}")
+                continue
+        
+        logging.info(f"PGN analysis complete: {len(analysis_results)} positions analyzed")
+        return analysis_results
+        
+    except Exception as e:
+        logging.error(f"Error during PGN analysis: {e}")
+        raise
+    finally:
+        # Cleanup dedicated engine
+        if engine:
+            try:
+                engine.stdin.write('quit\n')
+                engine.stdin.flush()
+                engine.wait(timeout=10)
+            except Exception:
+                try:
+                    engine.terminate()
+                    engine.wait(timeout=5)
+                except Exception:
+                    engine.kill()
+
+def _analyze_position_with_cache_and_engine(cache, engine, fen, depth, lines):
+    """
+    Analyze a specific position with cache support and an already initialized engine.
+    
+    Args:
+        cache: Cache instance
+        engine: Subprocess engine instance
+        fen: Position to analyze
+        depth: Analysis depth
+        lines: Number of lines (MultiPV)
+        
+    Returns:
+        Tuple of (bestmoves, ponder)
+    """
+    # Try to get from cache first
+    cached_result = cache.get_cached_analysis(fen, depth, lines)
+    if cached_result:
+        logging.info(f"Cache hit for position: {fen[:20]}...")
+        return cached_result
+    
+    # Cache miss - compute analysis with engine
+    logging.info(f"Cache miss - analyzing position: {fen[:20]}...")
+    result = _analyze_position_with_engine(engine, fen, depth, lines)
+    
+    # Store result in cache
+    if result[0]:  # Only cache if we got valid results
+        cache.store_analysis(fen, depth, lines, result[0], result[1])
+    
+    return result
+
+def _analyze_position_with_engine(engine, fen, depth, lines):
+    """
+    Analyze a specific position with an already initialized engine.
+    
+    Args:
+        engine: Subprocess engine instance
+        fen: Position to analyze
+        depth: Analysis depth
+        lines: Number of lines (MultiPV)
+        
+    Returns:
+        Tuple of (bestmoves, ponder)
+    """
+    try:
+        # Set position
+        engine.stdin.write(f'position fen {fen}\n')
         engine.stdin.flush()
         engine.stdin.write(f'go depth {depth}\n')
         engine.stdin.flush()
 
         bestmoves = []
         ponder = None
-        logging.info("ENGINE OUTPUT:\n")
+        
         while True:
             output = engine.stdout.readline().strip()
-            logging.info(f"{output}")
             if output.startswith(f"info depth {depth}") and "multipv" in output:
                 parts = output.split()
                 try:
                     mv_idx = parts.index("multipv") + 1
                     pv_idx = parts.index("pv") + 1
                     
-                    # Extract the full principal variation (all moves in the line)
+                    # Extract the full principal variation
                     pv_moves = []
                     for i in range(pv_idx, len(parts)):
-                        # Stop at the next engine info keyword or end of line
                         if parts[i] in ['depth', 'seldepth', 'time', 'nodes', 'score', 'multipv', 'wdl']:
                             break
                         pv_moves.append(parts[i])
@@ -303,7 +490,7 @@ def call_engine(fen, depth, engine_path=engine_path_NNUE, lines=3):
                         elif parts[score_idx + 1] == "mate":
                             mate = int(parts[score_idx + 2])
 
-                    # MODIFIED: Extract WDL if available
+                    # Extract WDL if available
                     winprob = None
                     w = None
                     d = None
@@ -313,11 +500,11 @@ def call_engine(fen, depth, engine_path=engine_path_NNUE, lines=3):
                         w = int(parts[wdl_idx])
                         d = int(parts[wdl_idx + 1])
                         l = int(parts[wdl_idx + 2])
-                        winprob = (w +(d/2))/10
+                        winprob = (w + (d/2))/10
 
                     bestmoves.insert(int(parts[mv_idx]) - 1, {
                         'move': first_move,
-                        'pv_moves': pv_moves,  # Full principal variation
+                        'pv_moves': pv_moves,
                         'score': score,
                         'mate': mate,
                         'w': w,
@@ -327,7 +514,7 @@ def call_engine(fen, depth, engine_path=engine_path_NNUE, lines=3):
                     })
                     
                 except Exception as e:
-                    print("Parse error:", e)
+                    logging.error(f"Parse error in position analysis: {e}")
                     continue
 
             elif output.startswith("bestmove"):
@@ -336,20 +523,11 @@ def call_engine(fen, depth, engine_path=engine_path_NNUE, lines=3):
                     ponder = parts[3]
                 break
 
-        logging.info("BESTMOVES: %s", bestmoves)
-        
-        # Store result in cache
-        cache.store_analysis(fen, depth, lines, bestmoves, ponder)
-        
         return bestmoves, ponder
         
     except Exception as e:
-        logging.error(f"Error during engine analysis: {e}")
+        logging.error(f"Error analyzing position {fen}: {e}")
         return [], None
-        
-    finally:
-        # Return engine to pool
-        pool.return_engine(engine)
 
 
 def apply_move_to_fen(fen, move_uci):
