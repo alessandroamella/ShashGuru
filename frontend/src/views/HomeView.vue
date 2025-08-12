@@ -6,6 +6,7 @@ import MoveTreeDisplay from '@/components/MoveTreeDisplay.vue';
 import EngineLines from '@/components/EngineLines.vue';
 import { Chess } from 'chess.js';
 import { EvaluationService } from '@/services/evaluationService.js';
+import { DEFAULT_DEPTH, DEFAULT_SHOW_LINES } from '@/constants/evaluation.js'
 
 const fen = ref('');
 const moves = ref([]);
@@ -34,8 +35,8 @@ const engineEvaluation = ref({
 const isEngineEvaluationLoading = ref(false);
 
 // UI settings
-const showLines = ref(3);
-const evaluationDepth = ref(20);
+const showLines = ref(DEFAULT_SHOW_LINES);
+const evaluationDepth = ref(DEFAULT_DEPTH);
 
 // Tree node structure for moves
 class MoveNode {

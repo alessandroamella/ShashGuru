@@ -23,8 +23,8 @@
         id="depth-slider"
         type="range" 
         v-model="localDepth" 
-        min="10" 
-        max="50" 
+        :min="MIN_DEPTH" 
+        :max="MAX_DEPTH" 
         step="1"
         class="setting-slider"
         @input="updateDepth"
@@ -56,8 +56,8 @@
         id="lines-slider"
         type="range" 
         v-model="localShowLines" 
-        min="1" 
-        max="5" 
+        :min="MIN_SHOW_LINES" 
+        :max="MAX_SHOW_LINES" 
         step="1"
         class="setting-slider"
         @input="updateShowLines"
@@ -77,23 +77,24 @@
 
 <script setup>
 import { ref, watch } from 'vue'
+import { DEFAULT_DEPTH, DEFAULT_EVALUATION_ENABLED, DEFAULT_SHOW_BEST_MOVE, DEFAULT_SHOW_LINES, MIN_DEPTH, MAX_DEPTH, MIN_SHOW_LINES, MAX_SHOW_LINES } from '@/constants/evaluation.js'
 
 const props = defineProps({
   depth: {
     type: Number,
-    default: 20
+    default: DEFAULT_DEPTH
   },
   enabled: {
     type: Boolean,
-    default: true
+    default: DEFAULT_EVALUATION_ENABLED
   },
   showBestMove: {
     type: Boolean,
-    default: true
+    default: DEFAULT_SHOW_BEST_MOVE
   },
   showLines: {
     type: Number,
-    default: 3
+    default: DEFAULT_SHOW_LINES
   }
 })
 
@@ -121,9 +122,9 @@ const updateShowLines = () => {
 }
 
 const resetToDefaults = () => {
-  localDepth.value = 20
-  localShowBestMove.value = true
-  localShowLines.value = 3
+  localDepth.value = DEFAULT_DEPTH
+  localShowBestMove.value = DEFAULT_SHOW_BEST_MOVE
+  localShowLines.value = DEFAULT_SHOW_LINES
   updateDepth()
   updateShowBestMove()
   updateShowLines()

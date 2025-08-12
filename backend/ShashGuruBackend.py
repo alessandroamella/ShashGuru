@@ -22,6 +22,7 @@ import logging
 
 import LLMHandler
 import engineCommunication
+from engineCache import get_cache
 
 app = Flask(__name__)
 CORS(app)
@@ -118,6 +119,121 @@ def evaluation():
         
     except Exception as e:
         print(f"Error in evaluation endpoint: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/cache/stats", methods=['GET'])
+def cache_stats():
+    """
+    Returns cache statistics.
+    """
+    try:
+        cache = get_cache()
+        stats = cache.get_cache_stats()
+        return jsonify(stats)
+    except Exception as e:
+        print(f"Error getting cache stats: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/cache/clear", methods=['POST'])
+def clear_cache():
+    """
+    Clears all cached analysis data.
+    """
+    try:
+        cache = get_cache()
+        cache.clear_cache()
+        return jsonify({"message": "Cache cleared successfully"})
+    except Exception as e:
+        print(f"Error clearing cache: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/pgn-analysis", methods=['POST'])
+def pgn_analysis():
+    """
+    Analyzes a complete PGN game using a dedicated engine instance.
+    More efficient for game analysis as the engine can reuse hash table entries.
+    
+    Expected JSON payload:
+    {
+        "pgn": "string" (PGN format game) OR "moves": ["e2e4", "e7e5", ...] (UCI moves),
+        "depth": int (optional, default: 15),
+        "lines": int (optional, default: 3),
+        "engine": "NNUE" or "HUMAN" (optional, default: "NNUE")
+    }
+    
+    Returns JSON with analysis for each position in the game.
+    """
+    try:
+        data = request.get_json()
+        
+        # Get PGN or moves
+        pgn_string = data.get('pgn')
+        moves_list = data.get('moves')
+        
+        if not pgn_string and not moves_list:
+            return jsonify({"error": "Either 'pgn' or 'moves' is required"}), 400
+            
+        if pgn_string and moves_list:
+            return jsonify({"error": "Provide either 'pgn' or 'moves', not both"}), 400
+        
+        # Get optional parameters
+        depth = data.get('depth', 15)
+        lines = data.get('lines', 3)
+        engine_type = data.get('engine', 'NNUE').upper()
+        
+        # Validate parameters
+        if depth < 1 or depth > 30:
+            return jsonify({"error": "Depth must be between 1 and 30"}), 400
+            
+        if lines < 1 or lines > 10:
+            return jsonify({"error": "Lines must be between 1 and 10"}), 400
+            
+        if engine_type not in ['NNUE', 'HUMAN']:
+            return jsonify({"error": "Engine must be 'NNUE' or 'HUMAN'"}), 400
+        
+        # Select engine path
+        engine_path = engineCommunication.engine_path_NNUE if engine_type == 'NNUE' else engineCommunication.engine_path_HUMAN
+        
+        print(f"Received PGN analysis request: depth={depth}, lines={lines}, engine={engine_type}")
+        
+        # Perform analysis
+        if pgn_string:
+            analysis_results = engineCommunication.analyze_pgn_game(pgn_string, depth, lines, engine_path)
+        else:
+            analysis_results = engineCommunication.analyze_pgn_game(moves_list, depth, lines, engine_path)
+        
+        return jsonify({
+            "success": True,
+            "game_analysis": analysis_results,
+            "metadata": {
+                "total_positions": len(analysis_results),
+                "depth": depth,
+                "lines": lines,
+                "engine": engine_type
+            }
+        })
+        
+    except ValueError as ve:
+        print(f"Validation error in PGN analysis: {ve}")
+        return jsonify({"error": str(ve)}), 400
+    except Exception as e:
+        print(f"Error in PGN analysis endpoint: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/pool/stats", methods=['GET'])
+def pool_stats():
+    """
+    Returns engine pool statistics.
+    """
+    try:
+        stats = engineCommunication.get_pool_stats()
+        return jsonify(stats)
+    except Exception as e:
+        print(f"Error getting pool stats: {e}")
         return jsonify({"error": str(e)}), 500
 
 
