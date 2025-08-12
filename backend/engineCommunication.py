@@ -19,6 +19,8 @@ import subprocess
 import os
 import chess
 import logging
+from engineCache import get_cache
+
 logging.basicConfig(level=logging.INFO)
 engine_name_NNUE = 'shashchess'
 engine_name_HUMAN = 'alexander'
@@ -26,6 +28,27 @@ engine_path_NNUE = f".\\executables\\{engine_name_NNUE}.exe" if os.name == 'nt' 
 engine_path_HUMAN = f".\\executables\\{engine_name_HUMAN}.exe" if os.name == 'nt' else f"./executables/{engine_name_HUMAN}"
 
 def call_engine(fen, depth, engine_path=engine_path_NNUE, lines=3):
+    """
+    Call chess engine for analysis with Redis caching.
+    
+    Args:
+        fen: Chess position in FEN notation
+        depth: Analysis depth
+        engine_path: Path to chess engine executable
+        lines: Number of analysis lines (MultiPV)
+        
+    Returns:
+        Tuple of (bestmoves, ponder)
+    """
+    # Try to get from cache first
+    cache = get_cache()
+    cached_result = cache.get_cached_analysis(fen, depth, lines)
+    if cached_result:
+        return cached_result
+    
+    # Cache miss - compute analysis
+    logging.info(f"Computing engine analysis for FEN: {fen}, depth: {depth}, lines: {lines}")
+    
     engine = subprocess.Popen([engine_path],
                                stdin=subprocess.PIPE,
                                stdout=subprocess.PIPE,
@@ -112,6 +135,9 @@ def call_engine(fen, depth, engine_path=engine_path_NNUE, lines=3):
     engine.stdin.flush()
     
     logging.info("BESTMOVES: %s", bestmoves)
+    
+    # Store result in cache
+    cache.store_analysis(fen, depth, lines, bestmoves, ponder)
     
     return bestmoves, ponder
 

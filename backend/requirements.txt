@@ -58,6 +58,7 @@ pyshorteners
 pyTelegramBotAPI
 python-dateutil
 PyYAML
+redis
 regex
 requests
 s3transfer

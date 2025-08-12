@@ -22,6 +22,7 @@ import logging
 
 import LLMHandler
 import engineCommunication
+from engineCache import get_cache
 
 app = Flask(__name__)
 CORS(app)
@@ -118,6 +119,34 @@ def evaluation():
         
     except Exception as e:
         print(f"Error in evaluation endpoint: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/cache/stats", methods=['GET'])
+def cache_stats():
+    """
+    Returns cache statistics.
+    """
+    try:
+        cache = get_cache()
+        stats = cache.get_cache_stats()
+        return jsonify(stats)
+    except Exception as e:
+        print(f"Error getting cache stats: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/cache/clear", methods=['POST'])
+def clear_cache():
+    """
+    Clears all cached analysis data.
+    """
+    try:
+        cache = get_cache()
+        cache.clear_cache()
+        return jsonify({"message": "Cache cleared successfully"})
+    except Exception as e:
+        print(f"Error clearing cache: {e}")
         return jsonify({"error": str(e)}), 500
 
 

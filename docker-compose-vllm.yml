@@ -31,6 +31,10 @@ services:
       - ./backend:/app
     environment:
       - FLASK_ENV=development
+      - REDIS_HOST=redis_cache
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
 
   model_server_0:
     image: shahguru_model_server:latest
@@ -154,6 +158,17 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis_cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --appendfsync everysec
+    restart: unless-stopped
+
 
 volumes:
   grafana-storage:
+  redis-data:
