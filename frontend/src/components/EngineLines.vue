@@ -44,6 +44,7 @@
 <script setup>
 import { computed } from 'vue'
 import { Chess } from 'chess.js'
+import { DEFAULT_SHOW_LINES } from '@/constants/evaluation.js'
 
 const props = defineProps({
   lines: {
@@ -52,7 +53,7 @@ const props = defineProps({
   },
   maxLines: {
     type: Number,
-    default: 3
+    default: DEFAULT_SHOW_LINES
   },
   depth: {
     type: Number,

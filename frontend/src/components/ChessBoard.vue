@@ -5,6 +5,7 @@ import 'vue3-chessboard/style.css';
 import { Chess } from 'chess.js'
 import EvaluationBar from './EvaluationBar.vue'
 import EvaluationSettings from './EvaluationSettings.vue'
+import { DEFAULT_DEPTH, DEFAULT_SHOW_LINES, DEFAULT_EVALUATION_ENABLED, DEFAULT_SHOW_BEST_MOVE } from '@/constants/evaluation.js'
 
 const emit = defineEmits(['updateFen', 'setMovesFromPGN', 'moveAdded', 'engineEvaluationUpdate', 'showLinesUpdate', 'evaluationLoadingUpdate', 'depthUpdate']);
 
@@ -12,10 +13,10 @@ const boardAPI = ref(null);
 const chessboardHeight = ref(400); // Default height
 
 // Evaluation settings
-const evaluationDepth = ref(20);
-const evaluationEnabled = ref(true);
-const showBestMoveArrow = ref(true);
-const showLines = ref(3);
+const evaluationDepth = ref(DEFAULT_DEPTH);
+const evaluationEnabled = ref(DEFAULT_EVALUATION_ENABLED);
+const showBestMoveArrow = ref(DEFAULT_SHOW_BEST_MOVE);
+const showLines = ref(DEFAULT_SHOW_LINES);
 
 // Watch for showLines changes and emit to parent
 watch(showLines, (newValue) => {

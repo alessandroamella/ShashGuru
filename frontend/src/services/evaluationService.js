@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { DEFAULT_DEPTH, DEFAULT_SHOW_LINES } from '@/constants/evaluation.js'
 
 export class EvaluationService {
   // Cache for memoizing evaluation results
@@ -7,7 +8,7 @@ export class EvaluationService {
   // Cache expiry time (5 minutes)
   static CACHE_EXPIRY = 5 * 60 * 1000
   
-  static async fetchEvaluation(fen, depth = 15, lines = 1) {
+  static async fetchEvaluation(fen, depth = DEFAULT_DEPTH, lines = DEFAULT_SHOW_LINES) {
     if (!fen) {
       return null
     }

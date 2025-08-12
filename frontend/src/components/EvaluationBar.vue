@@ -72,6 +72,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { EvaluationService } from '@/services/evaluationService.js'
+import { DEFAULT_DEPTH, DEFAULT_EVALUATION_ENABLED, DEFAULT_SHOW_LINES } from '@/constants/evaluation.js'
 
 const emit = defineEmits(['evaluation-update', 'loading-update'])
 
@@ -82,11 +83,11 @@ const props = defineProps({
   },
   depth: {
     type: Number,
-    default: 20
+    default: DEFAULT_DEPTH
   },
   enabled: {
     type: Boolean,
-    default: true
+    default: DEFAULT_EVALUATION_ENABLED
   },
   boardOrientation: {
     type: String,
@@ -98,7 +99,7 @@ const props = defineProps({
   },
   showLines: {
     type: Number,
-    default: 3
+    default: DEFAULT_SHOW_LINES
   }
 })
 
