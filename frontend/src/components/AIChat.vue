@@ -245,6 +245,14 @@ function scrollToBottom() {
                 </div>
             </div>
         </div>
+        
+        <!-- AI Content Disclaimer -->
+        <div class="disclaimer-text text-center mt-2 mb-2">
+            <small class="text-muted">
+                ⚠️ AI-generated content may contain errors or inaccuracies. Please verify important information.
+            </small>
+        </div>
+        
         <div class="flex-shrink-0">
             <div v-if="toAnalyse" class="flex-item d-flex justify-content-center">
                 <button type="button"
@@ -308,7 +316,9 @@ h6 {
 }
 
 /* Track */
-::-webkit-scrollbar-track {}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
 
 /* Handle */
 ::-webkit-scrollbar-thumb {
@@ -318,5 +328,15 @@ h6 {
 /* Handle on hover */
 ::-webkit-scrollbar-thumb:hover {
     background: #555;
+}
+
+.disclaimer-text {
+    border-top: 1px solid #3a3a3a;
+    padding-top: 8px;
+}
+
+.disclaimer-text small {
+    font-size: 0.75rem;
+    opacity: 0.8;
 }
 </style>
