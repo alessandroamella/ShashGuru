@@ -5,7 +5,7 @@
       <span class="depth-badge">Depth {{ depth }}</span>
     </div>
     
-    <div class="lines-container">
+    <div class="lines-container rounded-bottom px-0">
       <!-- Loading overlay on top of content -->
       <div v-if="loading" class="loading-overlay">
         <div class="spinner"></div>
@@ -210,32 +210,31 @@ function getEvaluationClass(evaluation) {
 
 <style scoped>
 .engine-lines {
-  background: rgba(42, 42, 42, 0.95);
-  border: 1px solid #444;
-  border-radius: 8px;
-  margin-bottom: 12px;
+  /*background: rgba(42, 42, 42, 0.95);*/
+  
   overflow: hidden;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .lines-header {
-  background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+  background-color: #444;
+
   padding: 8px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #555;
 }
 
 .header-text {
   color: #e8e8e8;
   font-weight: 600;
   font-size: 0.9rem;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .depth-badge {
-  background: #4a5568;
-  color: #cbd5e0;
+  background: #cdd26a;
+  color: black;
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 0.75rem;
@@ -246,6 +245,10 @@ function getEvaluationClass(evaluation) {
   position: relative; /* Allow absolute positioning of overlay */
   padding: 8px 0;
   min-height: 120px; /* Ensure consistent height */
+  border: 1px solid #444;
+  border-top: 0px solid transparent;
+  border-radius: 0, 0, 8px, 8px;
+  margin-bottom: 12px;
 }
 
 .loading-overlay {

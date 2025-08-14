@@ -720,6 +720,8 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
   flex-shrink: 0;
   font-size: 0.85em;
   position: relative;
+  font-size: 1em;
+  padding: 0.15rem 0.5rem;
 }
 
 .move-text .move-icon {
@@ -755,8 +757,9 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
 
 .move-text.current-move {
   background-color: #cdd26a;
-  color: black;
-  font-weight: bold;
+  color: black !important;
+  
+  font-weight: bold !important; 
 }
 
 .move-text.main-line {

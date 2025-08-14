@@ -672,7 +672,7 @@ watch(selectedMoveIndex, async () => {
             </div>
           </div>
           <div class="pe-2">
-            <div id="moves" class="p-3 pt-1 pb-2">
+            <div id="moves" class="px-3 pt-1 pb-2">
               <!-- Engine Lines Display -->
               <EngineLines 
                 v-if="(engineEvaluation && engineEvaluation.lines && engineEvaluation.lines.length > 0) || isEngineEvaluationLoading"
@@ -682,12 +682,13 @@ watch(selectedMoveIndex, async () => {
                 :currentFen="currentNode?.fen || ''"
                 :loading="isEngineEvaluationLoading"
                 @move-clicked="handleEngineLineMove"
+                
               />
               <div v-if="moveTree" class="move-tree">
-                <div class="moves-header">
-                  <span class="header-text">Moves</span>
+                <div class="moves-header rounded-top ">
+                  <span class="header-text fs-5">Moves</span>
                 </div> 
-                  <div class="moves-body">
+                  <div class="moves-body ps-2 rounded-bottom ">
                   <MoveTreeDisplay 
                     :node="moveTree" 
                     :currentNode="currentNode" 
@@ -747,24 +748,28 @@ watch(selectedMoveIndex, async () => {
 }
 
 .moves-header {
-  background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+  background-color: #444;
+  
   padding: 8px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #555;
+  
+  
+  
 }
 
 .header-text {
   color: #e8e8e8;
   font-weight: 600;
   font-size: 0.9rem;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  
 }
 
 .moves-body {
-  background: rgba(42, 42, 42, 0.95);
   border: 1px solid #444;
-  border-radius: 8px;
+  border-top: 0px solid transparent;
   margin-bottom: 12px;
   overflow: hidden;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
