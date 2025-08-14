@@ -285,6 +285,7 @@ function getEvaluationClass(evaluation) {
   padding: 6px 12px;
   transition: background-color 0.2s ease;
   cursor: pointer;
+  border-left: 3px solid transparent; /* Keeps consistent spacing with best line */
 }
 
 .engine-line:hover {
