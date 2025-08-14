@@ -101,13 +101,13 @@ function handleBoardCreated(api) {
   });
 }
 
-function drawBestMovesArrows(){
+function drawBestMovesArrows() {
   if (showBestMoveArrow.value && engineEvaluation.value?.bestMove) {
-      boardAPI.value?.drawMove(
-        engineEvaluation.value.bestMove.slice(0, 2),
-        engineEvaluation.value.bestMove.slice(2, 4),
-        'paleBlue',
-      );
+    boardAPI.value?.drawMove(
+      engineEvaluation.value.bestMove.slice(0, 2),
+      engineEvaluation.value.bestMove.slice(2, 4),
+      'paleBlue',
+    );
   }
 }
 
@@ -133,7 +133,7 @@ function updateChessboardHeight() {
         chessboardHeight.value = rect.height || 400;
       }
     } catch (error) {
-      console.log('Could not get board height, using default');
+      console.error('Could not get board height, using default', error);
       chessboardHeight.value = 400;
     }
   }
@@ -151,7 +151,7 @@ function handleMove(move) {
   const newFen = move.after;
   fen.value = newFen;
   emit("updateFen", newFen);
-  
+
   // Emit the move to be added to the tree structure
   emit("moveAdded", {
     move: move.san || move.notation,
@@ -229,7 +229,7 @@ onMounted(() => {
   setTimeout(() => {
     updateChessboardHeight();
   }, 500);
-  
+
   // Add keyboard listener for modal
   document.addEventListener('keydown', handleKeydown);
 });
@@ -267,7 +267,7 @@ onUnmounted(() => {
         <div v-if="side === 'w'" class="text-white p-2">White to play</div>
         <div v-else-if="side === 'b'" class="text-white p-2">Black to play</div>
       </div>
-      
+
       <div class="board-with-eval">
         <div class="evaluation-panel">
           <EvaluationBar 
@@ -292,18 +292,25 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="fen-input-container">
-        <input v-model="fen" @keyup.enter="setPositionFromInput" id="fenInput"
-          class="flex-item border rounded px-3 py-2 mt-2 w-100 text-white bg-dark border-0"
-          placeholder="Enter FEN and press Enter" autocomplete="off" aria-label="FEN Input" />
+      <div class="fen-input-container w-100">
+
+        <div class="input-group flex-nowrap mt-2 ">
+          <span class="input-group-text text-white bg-light bg-opacity-25 border border-0 ">FEN</span>
+          <input v-model="fen" @keyup.enter="setPositionFromInput" id="fenInput"
+            class="  form-control border  px-3 py-2   text-white bg-dark border-0"
+            placeholder="Enter FEN and press Enter" autocomplete="off" aria-label="FEN Input" />
+        </div>
       </div>
       <div class="pgn-input-container">
-        <input v-model="pgn" @keyup.enter="handlePGN" id="pgnInput"
-          class="flex-item border rounded px-3 py-2 mt-2 w-100 text-white bg-dark border-0"
-          placeholder="Enter PGN and press Enter" autocomplete="off" aria-label="PGN Input" />
+        <div class="input-group flex-nowrap mt-2">
+          <span class="input-group-text text-white bg-light bg-opacity-25 border border-0 ">PGN</span>
+          <input v-model="pgn" @keyup.enter="handlePGN" id="pgnInput"
+            class="form-control border  px-3 py-2   text-white bg-dark border-0" placeholder="Enter PGN and press Enter"
+            autocomplete="off" aria-label="PGN Input" />
+        </div>
       </div>
     </div>
-    
+
     <!-- Settings Modal -->
     <div v-if="showSettings" class="settings-modal-overlay" @click="showSettings = false">
       <div class="settings-modal" @click.stop>
@@ -312,12 +319,8 @@ onUnmounted(() => {
           <button @click="showSettings = false" class="close-btn material-icons">close</button>
         </div>
         <div class="settings-modal-body">
-          <EvaluationSettings 
-            v-model:depth="evaluationDepth"
-            v-model:enabled="evaluationEnabled"
-            v-model:showBestMove="showBestMoveArrow"
-            v-model:showLines="showLines"
-          />
+          <EvaluationSettings v-model:depth="evaluationDepth" v-model:enabled="evaluationEnabled"
+            v-model:showBestMove="showBestMoveArrow" v-model:showLines="showLines" />
         </div>
       </div>
     </div>
@@ -382,6 +385,7 @@ onUnmounted(() => {
     opacity: 0;
     transform: scale(0.9) translateY(-20px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -434,6 +438,10 @@ onUnmounted(() => {
   margin-top: 0.5rem;
 }
 
+input {
+  box-shadow: none !important;
+}
+
 button.btn {
   background: #262421;
   color: #f2f2f2;
@@ -445,9 +453,9 @@ button.btn {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
-button.btn:hover, button.btn:focus {
+button.btn:hover {
   background: #cdd26a;
   color: #232323;
-  box-shadow: 0 4px 16px rgba(205,210,106,0.15);
+  box-shadow: 0 4px 16px rgba(205, 210, 106, 0.15);
 }
 </style>

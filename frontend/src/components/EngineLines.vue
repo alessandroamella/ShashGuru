@@ -30,7 +30,7 @@
             :key="moveIndex"
             class="line-move"
             :class="{ 'white-move': move.isWhite, 'black-move': !move.isWhite }"
-            @click="$emit('moveClicked', move.san, line, moveIndex)"
+            @click="onMoveClicked(move.san, line, moveIndex)"
           >
             <span v-if="move.moveNumber" class="move-number">{{ move.moveNumber }}.</span>
             {{ move.san }}
@@ -70,6 +70,10 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['moveClicked'])
+
+function onMoveClicked(move, line, moveIndex) {
+  emit('moveClicked', move, line, moveIndex)
+}
 
 // Helper function to determine whose turn it is from FEN
 const isWhiteToMove = computed(() => {
@@ -285,6 +289,7 @@ function getEvaluationClass(evaluation) {
   padding: 6px 12px;
   transition: background-color 0.2s ease;
   cursor: pointer;
+  border-left: 3px solid transparent; /* Keeps consistent spacing with best line */
 }
 
 .engine-line:hover {
