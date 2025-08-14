@@ -424,8 +424,7 @@ function handleEvaluationLoadingUpdate(isLoading) {
 }
 
 // Handle engine line move clicks
-function handleEngineLineMove(payload) {
-  const { move, line, moveIndex } = payload;
+function handleEngineLineMove(move, line, moveIndex) {
   console.log('Engine line move clicked:', move, line, moveIndex);
   
   // Add the move from the engine line

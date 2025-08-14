@@ -176,6 +176,23 @@ function resetBoard() {
   boardAPI.value?.resetBoard();
   fen.value = boardConfig.fen;
   emit("updateFen", boardConfig.fen);
+  
+  // Reset engine evaluation data
+  engineEvaluation.value = {
+    bestMove: null,
+    evaluation: null,
+    depth: 0,
+    lines: []
+  };
+  
+  // Emit reset signals to parent
+  emit('engineEvaluationUpdate', engineEvaluation.value);
+  emit('setMovesFromPGN', {
+    fullPGN: '',
+    moves: [],
+    headers: {}
+  });
+  
   // Update height after reset
   nextTick(() => {
     updateChessboardHeight();
