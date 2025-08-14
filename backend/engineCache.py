@@ -134,9 +134,8 @@ class EngineCache:
             }
             
             # Store back to Redis with expiration (1 week)
-            self.redis_client.setex(
-                cache_key, 
-                604800,  # 7 days in seconds
+            self.redis_client.set(
+                cache_key,
                 json.dumps(depth_analysis)
             )
             
