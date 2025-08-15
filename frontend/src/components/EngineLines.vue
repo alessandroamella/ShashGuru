@@ -1,7 +1,7 @@
 <template>
   <div v-if="lines && lines.length > 0 || loading" class="engine-lines">
-    <div class="lines-header">
-      <span class="header-text">Engine Analysis</span>
+    <div class="lines-header rounded-top">
+      <span class="header-text fs-6">Engine Analysis</span>
       <span class="depth-badge">Depth {{ depth }}</span>
     </div>
     
