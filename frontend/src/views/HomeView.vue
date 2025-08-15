@@ -322,9 +322,21 @@ function forwardEnd() {
   }
 }
 
+// Detects if an element is editable, needed to prevent arrow key event being stealed from input/textarea
+function isEditableElement(el) {
+  return el &&
+    (
+      el.tagName === 'INPUT' ||
+      el.tagName === 'TEXTAREA' ||
+      el.isContentEditable
+    );
+}
+
 // Arrow key navigation
 function handleKeyDown(event) {
   if (isLoading.value) return;
+  
+  if (isEditableElement(document.activeElement)) return; // Ignore if focused on input/textarea, otherwise it steals every arrow key event
   
   switch(event.key) {
     case 'ArrowLeft':
@@ -683,9 +695,9 @@ watch(selectedMoveIndex, async () => {
                 @move-clicked="handleEngineLineMove"
                 
               />
-              <div v-if="moveTree" class="move-tree">
+              <div v-if="hasMoves" class="move-tree">
                 <div class="moves-header rounded-top ">
-                  <span class="header-text fs-5">Moves</span>
+                  <span class="header-text fs-6">Moves</span>
                 </div> 
                   <div class="moves-body ps-2 rounded-bottom ">
                   <MoveTreeDisplay 
