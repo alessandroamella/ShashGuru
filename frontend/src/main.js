@@ -1,5 +1,8 @@
-import './assets/main.css'
 
+// Typically in your main.js, app.js, or index.js
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import './assets/main.css'
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'

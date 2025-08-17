@@ -4,53 +4,45 @@
       <div class="evaluation-bar" :class="{ 'flipped': boardOrientation === 'black' }">
         <template v-if="enabled">
           <!-- Top section (black when white orientation, white when black orientation) -->
-          <div 
-            class="eval-section" 
-            :class="boardOrientation !== 'white' ? 'black-section' : 'white-section'"
-            :style="{ height: (boardOrientation !== 'white' ? blackPercentage : whitePercentage) + '%' }"
-          >
-            <div v-if="(boardOrientation !== 'white' ? blackPercentage : whitePercentage) > 15" 
-                 class="eval-text" 
-                 :class="boardOrientation !== 'white' ? 'black-text' : 'white-text'">
+          <div class="eval-section" :class="boardOrientation !== 'white' ? 'black-section' : 'white-section'"
+            :style="{ height: (boardOrientation !== 'white' ? blackPercentage : whitePercentage) + '%' }">
+            <div v-if="(boardOrientation !== 'white' ? blackPercentage : whitePercentage) > 15" class="eval-text"
+              :class="boardOrientation !== 'white' ? 'black-text' : 'white-text'">
               {{ formatEvaluation() }}
             </div>
           </div>
-          
+
           <!-- Bottom section (white when white orientation, black when black orientation) -->
-          <div 
-            class="eval-section" 
-            :class="boardOrientation !== 'white' ? 'white-section' : 'black-section'"
-            :style="{ height: (boardOrientation !== 'white' ? whitePercentage : blackPercentage) + '%' }"
-          >
-            <div v-if="(boardOrientation !== 'white' ? whitePercentage : blackPercentage) > 15" 
-                 class="eval-text" 
-                 :class="boardOrientation !== 'white' ? 'white-text' : 'black-text'">
+          <div class="eval-section" :class="boardOrientation !== 'white' ? 'white-section' : 'black-section'"
+            :style="{ height: (boardOrientation !== 'white' ? whitePercentage : blackPercentage) + '%' }">
+            <div v-if="(boardOrientation !== 'white' ? whitePercentage : blackPercentage) > 15" class="eval-text"
+              :class="boardOrientation !== 'white' ? 'white-text' : 'black-text'">
               {{ formatEvaluation() }}
             </div>
           </div>
         </template>
-        
+
         <template v-else>
           <!-- Disabled state - neutral position -->
           <div class="eval-section black-section" style="height: 50%"></div>
           <div class="eval-section white-section" style="height: 50%"></div>
         </template>
       </div>
-      
+
       <!-- Center line -->
       <div class="center-line"></div>
-      
+
       <!-- Loading overlay -->
       <div v-if="loading && enabled" class="loading-overlay">
         <div class="spinner"></div>
       </div>
-      
+
       <!-- Disabled overlay -->
       <div v-if="!enabled" class="disabled-overlay">
         <span class="disabled-text">OFF</span>
       </div>
     </div>
-    
+
     <!-- Evaluation details -->
     <div v-if="evaluation && enabled" class="evaluation-details">
       <!-- <div class="best-move">
@@ -452,8 +444,13 @@ watch([evaluation, loading], ([newEval, isLoading]) => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .error-message {

@@ -267,8 +267,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="chessboard-container">
-    <div class="board-section">
+  <div class="chessboard-container" style="max-width: 40vw;" >
+    <div class="board-section w-100">
       <div class="d-flex">
         <section role="region" aria-label="Board Controls" class="board-controls">
           <button type="button" @click="toggleOrientation" class="btn btn-sm m-1">
@@ -305,22 +305,23 @@ onUnmounted(() => {
             @board-created="handleBoardCreated" 
             @checkmate="handleCheckmate"
             @move="handleMove" 
+            style="max-height: 70vh; max-width: 50vmin"
+            class=""
           />
         </div>
       </div>
 
       <div class="fen-input-container w-100">
-
-        <div class="input-group flex-nowrap mt-2 ">
-          <span class="input-group-text text-white bg-light bg-opacity-25 border border-0 ">FEN</span>
+        <div class="input-group flex-nowrap mt-2">
+          <span class="input-group-text text-white bg-light bg-opacity-25 border border-0 font-monospace">FEN</span>
           <input v-model="fen" @keyup.enter="setPositionFromInput" id="fenInput"
-            class="  form-control border  px-3 py-2   text-white bg-dark border-0"
+            class="  form-control border px-3 py-2 text-white bg-dark border-0"
             placeholder="Enter FEN and press Enter" autocomplete="off" aria-label="FEN Input" />
         </div>
       </div>
       <div class="pgn-input-container">
         <div class="input-group flex-nowrap mt-2">
-          <span class="input-group-text text-white bg-light bg-opacity-25 border border-0 ">PGN</span>
+          <span class="input-group-text text-white bg-light bg-opacity-25 border border-0 font-monospace">PGN</span>
           <input v-model="pgn" @keyup.enter="handlePGN" id="pgnInput"
             class="form-control border  px-3 py-2   text-white bg-dark border-0" placeholder="Enter PGN and press Enter"
             autocomplete="off" aria-label="PGN Input" />
@@ -345,6 +346,9 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+input::placeholder {
+  color: gray;
+}
 .chessboard-container {
   width: 100%;
 }
