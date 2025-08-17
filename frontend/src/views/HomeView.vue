@@ -603,8 +603,8 @@ watch(selectedMoveIndex, async () => {
 </script>
 
 <template>
-  <div id="chessboard" class="d-flex justify-content-evenly mx-5">
-    <div class="flex-item m-5 mt-2 p-3" :class="{ 'loading': isLoading }">
+  <div id="chessboard" class="d-flex flex-column flex-lg-row justify-content-evenly m-2 m-lg-5" >
+    <div class="flex-item mx-0 p-3 pt-0" :class="{ 'loading': isLoading }">
       <ChessBoard 
         :fenProp="fen" 
         @updateFen="updateFen" 
@@ -617,12 +617,12 @@ watch(selectedMoveIndex, async () => {
       />
     </div>
 
-    <div class="right-panel d-flex flex-fill m-5 gap-3">
+    <div class="right-panel d-flex flex-column flex-lg-row flex-fill mx-2 mx-lg-5 gap-3">
       <!-- MOVES PANEL -->
-      <div id="moves-panel" class="moves-section rounded-4 d-flex flex-column">
+      <div id="moves-panel" class="moves-section rounded-4 d-flex flex-column rounded-top-4 overflow-hidden ">
         <!-- PLAYER INFO -->
         <div v-if="hasPlayerInfo" id="playerInfo"
-          class="d-flex align-items-center justify-content-between p-3 text-light rounded-top"
+          class="d-flex align-items-center justify-content-between p-3 text-light rounded-top-4"
           style="background-color: #33312e; border-bottom: 1px solid #ffffff1e; max-height: 100px;">
 
           <!-- White Player -->
@@ -642,10 +642,10 @@ watch(selectedMoveIndex, async () => {
             <div class="fs-6 text-truncate">{{ blackPlayer }}</div>
           </div>
         </div>
-
+        
         <!-- MOVES -->
-        <div class="fs-6 flex-fill">
-          <div id="moveHeader" class="d-flex justify-content-center align-items-center py-1">
+        <div class="flex-fill">
+          <div id="moveHeader" class="d-flex justify-content-center align-items-center py-1 ">
             <div>
               <button class="btn btn-sm text-white material-icons" :disabled="!currentNode || !currentNode.parent"
                 @click="backStart">first_page</button>
@@ -683,7 +683,7 @@ watch(selectedMoveIndex, async () => {
             </div>
           </div>
           <div class="pe-2">
-            <div id="moves" class="px-3 pt-1 pb-2">
+            <div id="moves" class="px-3 pt-3 pb-2">
               <!-- Engine Lines Display -->
               <EngineLines 
                 v-if="(engineEvaluation && engineEvaluation.lines && engineEvaluation.lines.length > 0) || isEngineEvaluationLoading"
@@ -693,9 +693,9 @@ watch(selectedMoveIndex, async () => {
                 :currentFen="currentNode?.fen || ''"
                 :loading="isEngineEvaluationLoading"
                 @move-clicked="handleEngineLineMove"
-                
+                class="mb-3"
               />
-              <div v-if="hasMoves" class="move-tree">
+              <div v-if="hasMoves" class="move-tree shadow">
                 <div class="moves-header rounded-top ">
                   <span class="header-text fs-6">Moves</span>
                 </div> 
@@ -717,10 +717,10 @@ watch(selectedMoveIndex, async () => {
                   />
                 </div>
               </div>
-              <div v-if="!hasMoves && !isAnalysisMode" class="text-muted text-center">
+              <div v-if="!hasMoves && !isAnalysisMode" class="text-secondary text-center">
                 Load a PGN or make moves on the board to begin analysis
               </div>
-              <div v-if="!hasMoves && isAnalysisMode" class="text-muted text-center">
+              <div v-if="!hasMoves && isAnalysisMode" class="text-secondary text-center">
                 <i class="material-icons me-2">info</i>Analysis mode enabled - make moves on the board or use arrow keys to navigate
               </div>
             </div>

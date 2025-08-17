@@ -10,6 +10,7 @@ import { RouterLink, RouterView } from 'vue-router'
         <RouterLink id="logo" to="/" class="navbar-brand white fs-1"><h1>ShashGuru</h1></RouterLink>
         <div class="navbar-nav ms-5">
           <RouterLink to="/" class="nav-link mx-3"><span class="fs-4">HOME</span></RouterLink>
+          <RouterLink to="/live" class="nav-link mx-3"><span class="fs-4">LIVE</span></RouterLink>
           <RouterLink to="/about" class="nav-link mx-3"><span class="fs-4">ABOUT</span></RouterLink>
         </div>
       </div>
