@@ -1,31 +1,5 @@
 <template>
-    <div id="eventGameCard" class="rounded m-3 p-2" style="">
-        <!-- White Player -->
-        <div id="whitePlayer" class="d-flex justify-content-between align-items-center">
-            <div v-if="metadata.whitePlayerTitle" class="flex-shrink-0">
-                <span  class="title ps-1">{{ metadata.whitePlayerTitle }}</span>
-            </div>
-            <div class="text-truncate px-1 flex-shrink-1">
-                {{ metadata.whitePlayerName }}
-            </div>
-            <div v-if="metadata.whitePlayerRating" class="flex-item flex-grow-1 text-start">
-                ({{ metadata.whitePlayerRating }})
-            </div>
-            <div v-if="resultFor('white')" class="flex-shrink-0">
-                <span :class="['ms-3 pe-1 fw-bold fs-6', resultClass(resultFor('white'))]">
-                    {{ resultFor('white') }}
-                </span>
-            </div>
-        </div>
-
-        <!-- Board -->
-        <div class="position-relative d-flex justify-content-center" style="height:250px; width:250px;">
-            <TheChessboard :board-config="boardConfig" style="height:250px; width:250px;" />
-
-            <div v-if="metadata.gameResult === '*'" class="overlay d-flex justify-content-center align-items-center">
-                Ongoing
-            </div>
-        </div>
+    <div id="eventGameCard" class="rounded m-3 p-2" style="" @click="navigateToAnalysis">
 
         <!-- Black Player -->
         <div id="blackPlayer" class="d-flex justify-content-between align-items-center">
@@ -44,14 +18,47 @@
                 </span>
             </div>
         </div>
+
+        <!-- Board -->
+        <div class="position-relative d-flex justify-content-center" style="height:250px; width:250px;">
+            <TheChessboard :board-config="boardConfig" @board-created="handleBoardCreated"
+                style="height:250px; width:250px;" />
+
+
+            <div v-if="metadata.gameResult === '*'" class="overlay d-flex justify-content-center align-items-center">
+                Ongoing
+            </div>
+        </div>
+
+        <!-- White Player -->
+        <div id="whitePlayer" class="d-flex justify-content-between align-items-center">
+            <div v-if="metadata.whitePlayerTitle" class="flex-shrink-0">
+                <span class="title ps-1">{{ metadata.whitePlayerTitle }}</span>
+            </div>
+            <div class="text-truncate px-1 flex-shrink-1">
+                {{ metadata.whitePlayerName }}
+            </div>
+            <div v-if="metadata.whitePlayerRating" class="flex-item flex-grow-1 text-start">
+                ({{ metadata.whitePlayerRating }})
+            </div>
+            <div v-if="resultFor('white')" class="flex-shrink-0">
+                <span :class="['ms-3 pe-1 fw-bold fs-6', resultClass(resultFor('white'))]">
+                    {{ resultFor('white') }}
+                </span>
+            </div>
+        </div>
+
+
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, reactive } from 'vue'
 import { Chess } from 'chess.js';
 import { TheChessboard } from 'vue3-chessboard';
+import { useRouter } from 'vue-router'
 import 'vue3-chessboard/style.css';
+import { useChessStore } from '@/stores/useChessStore';
 
 const props = defineProps({
     pgn: {
@@ -59,11 +66,22 @@ const props = defineProps({
         default: ''
     }
 })
-
-
+const chessStore = useChessStore();
+const boardAPI = ref(null);
+const router = useRouter()
 const metadata = ref({})
 const fen = ref('')
-const boardConfig = ref({})
+const boardConfig = reactive({
+    fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", // Starting FEN
+    viewOnly: true, // Make the board read-only
+    orientation: 'black', // Set initial orientation to black
+});
+
+function navigateToAnalysis() {
+
+    chessStore.setPGN(props.pgn);
+    router.push({ name: 'home' });
+}
 
 function extractMetadata(pgn) {
     const getTag = (tag) => {
@@ -104,18 +122,20 @@ function resultClass(result) {
     if (result === '0') return 'text-danger ';
     return 'text-light ';
 }
-
+function handleBoardCreated(api) {
+    boardAPI.value = api;
+    
+}
 
 onMounted(() => {
     if (props.pgn) {
+
         fen.value = pgnToFen(props.pgn);
-        boardConfig.value = {
-            fen: fen,
-            viewOnly: true,
-        }
-        console.log('Board config:', boardConfig);
-        extractMetadata(props.pgn)
+        boardAPI.value.setPosition(fen.value);
+
     }
+    extractMetadata(props.pgn)
+
 })
 
 </script>
@@ -152,9 +172,11 @@ onMounted(() => {
     z-index: 100;
     cursor: not-allowed
 }
+
 .text-victory {
     color: #629924;
 }
+
 .text-loss {
     color: #cc3333;
 }

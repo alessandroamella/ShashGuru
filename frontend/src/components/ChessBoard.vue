@@ -6,7 +6,11 @@ import { Chess } from 'chess.js'
 import EvaluationBar from './EvaluationBar.vue'
 import EvaluationSettings from './EvaluationSettings.vue'
 import { DEFAULT_DEPTH, DEFAULT_SHOW_LINES, DEFAULT_EVALUATION_ENABLED, DEFAULT_SHOW_BEST_MOVE } from '@/constants/evaluation.js'
+import { useChessStore } from '@/stores/useChessStore'; // TODO: Refactor to only use pinia store for PGN management
+import { storeToRefs } from 'pinia';
 
+const chessStore = useChessStore();
+const currentPGN = storeToRefs(chessStore).currentPGN;
 const emit = defineEmits(['updateFen', 'setMovesFromPGN', 'moveAdded', 'engineEvaluationUpdate', 'showLinesUpdate', 'evaluationLoadingUpdate', 'depthUpdate']);
 
 const boardAPI = ref(null);
@@ -192,7 +196,8 @@ function resetBoard() {
     moves: [],
     headers: {}
   });
-  
+  pgn.value = ''; // Reset PGN input
+  chessStore.setPGN(''); // Reset store PGN
   // Update height after reset
   nextTick(() => {
     updateChessboardHeight();
@@ -231,6 +236,7 @@ function handlePGN() {
   const finalFEN = chess.fen();
   fen.value = finalFEN;
   emit("updateFen", finalFEN);
+  chessStore.setPGN(rawPGN);
   emit("setMovesFromPGN", {
     fullPGN: rawPGN,
     moves: chess.history(),
@@ -242,6 +248,11 @@ function handlePGN() {
 
 // Initialize chessboard height on mount
 onMounted(() => {
+  console.log("STORE PGN",chessStore.currentPGN);
+  pgn.value = chessStore.currentPGN || null;
+  if (pgn.value) {
+    handlePGN();
+  } 
   // Wait a bit for the chessboard to render
   setTimeout(() => {
     updateChessboardHeight();
@@ -257,6 +268,13 @@ function handleKeydown(event) {
     showSettings.value = false;
   }
 }
+watch(currentPGN, (newPGN) => {
+  if (newPGN) {
+    pgn.value = newPGN;
+    handlePGN();
+  }
+});
+
 
 // Cleanup on unmount
 onUnmounted(() => {

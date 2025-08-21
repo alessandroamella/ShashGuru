@@ -7,6 +7,8 @@ import EngineLines from '@/components/EngineLines.vue';
 import { Chess } from 'chess.js';
 import { EvaluationService } from '@/services/evaluationService.js';
 import { DEFAULT_DEPTH, DEFAULT_SHOW_LINES } from '@/constants/evaluation.js'
+import { useChessStore } from '@/stores/useChessStore';
+
 
 const fen = ref('');
 const moves = ref([]);
@@ -16,6 +18,8 @@ const hasPlayerInfo = ref(false);
 const hasMoves = ref(false)
 const selectedMoveIndex = ref(0);
 const moveRefs = ref([]);
+const chessStore = useChessStore();
+
 
 // Tree structure for moves
 const moveTree = ref(null);
@@ -250,11 +254,15 @@ const gameResult = ref('');
 // Called when ChessBoard emits PGN (full)
 function setMovesFromPGN(payload) {
   moveRefs.value = [];
-  
+  if (payload.fullPGN !== null && payload.fullPGN !== '') {
+    hasMoves.value = true;
+  } else {
+    hasMoves.value = false;
+  }
   // Build tree from moves
   buildTreeFromMoves(payload.moves);
   hasMoves.value = true;
-
+  
   // Set player names and result
   if (payload.headers.White && payload.headers.Black) {
     whitePlayer.value = payload.headers.White;
