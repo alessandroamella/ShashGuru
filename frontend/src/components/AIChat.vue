@@ -222,7 +222,7 @@ function scrollToBottom() {
 
 
 <template>
-    <div class="container-fill d-flex flex-column  overflow-auto p-3 me-0 rounded-bottom rounded-4 w-100 h-100">
+    <div class="container-fill d-flex flex-column  overflow-auto p-3 me-0  rounded-4 w-100 h-100">
         <!-- Chat Messages -->
         <div id="messages" class=" flex-grow-1 h-100" style="scroll-behavior: smooth;">
             
@@ -240,7 +240,7 @@ function scrollToBottom() {
                 </div>
             </div>
             <div v-if="loading" class="thinking-indicator p-3 pe-4 rounded-4 me-5">
-                <div class="text-break text-start text-muted">
+                <div class="text-break text-start ">
                     <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                 </div>
             </div>
@@ -248,8 +248,8 @@ function scrollToBottom() {
         
         <!-- AI Content Disclaimer -->
         <div class="disclaimer-text text-center mt-2 mb-2">
-            <small class="text-muted">
-                ⚠️ AI-generated content may contain errors or inaccuracies. Please verify important information.
+            <small class="text-secondary">
+                AI-generated content may contain errors or inaccuracies. Please verify important information.
             </small>
         </div>
         

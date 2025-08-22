@@ -1,11 +1,11 @@
 <template>
-  <div v-if="lines && lines.length > 0 || loading" class="engine-lines">
+  <div v-if="lines && lines.length > 0 || loading" class="engine-lines shadow mb-0 pb-0">
     <div class="lines-header rounded-top">
       <span class="header-text fs-6">Engine Analysis</span>
       <span class="depth-badge">Depth {{ depth }}</span>
     </div>
     
-    <div class="lines-container rounded-bottom px-0">
+    <div class="lines-container rounded-bottom px-0 mb-0">
       <!-- Loading overlay on top of content -->
       <div v-if="loading" class="loading-overlay">
         <div class="spinner"></div>

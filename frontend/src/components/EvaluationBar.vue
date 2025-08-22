@@ -4,53 +4,45 @@
       <div class="evaluation-bar" :class="{ 'flipped': boardOrientation === 'black' }">
         <template v-if="enabled">
           <!-- Top section (black when white orientation, white when black orientation) -->
-          <div 
-            class="eval-section" 
-            :class="boardOrientation !== 'white' ? 'black-section' : 'white-section'"
-            :style="{ height: (boardOrientation !== 'white' ? blackPercentage : whitePercentage) + '%' }"
-          >
-            <div v-if="(boardOrientation !== 'white' ? blackPercentage : whitePercentage) > 15" 
-                 class="eval-text" 
-                 :class="boardOrientation !== 'white' ? 'black-text' : 'white-text'">
+          <div class="eval-section" :class="boardOrientation !== 'white' ? 'black-section' : 'white-section'"
+            :style="{ height: (boardOrientation !== 'white' ? blackPercentage : whitePercentage) + '%' }">
+            <div v-if="(boardOrientation !== 'white' ? blackPercentage : whitePercentage) > 15" class="eval-text"
+              :class="boardOrientation !== 'white' ? 'black-text' : 'white-text'">
               {{ formatEvaluation() }}
             </div>
           </div>
-          
+
           <!-- Bottom section (white when white orientation, black when black orientation) -->
-          <div 
-            class="eval-section" 
-            :class="boardOrientation !== 'white' ? 'white-section' : 'black-section'"
-            :style="{ height: (boardOrientation !== 'white' ? whitePercentage : blackPercentage) + '%' }"
-          >
-            <div v-if="(boardOrientation !== 'white' ? whitePercentage : blackPercentage) > 15" 
-                 class="eval-text" 
-                 :class="boardOrientation !== 'white' ? 'white-text' : 'black-text'">
+          <div class="eval-section" :class="boardOrientation !== 'white' ? 'white-section' : 'black-section'"
+            :style="{ height: (boardOrientation !== 'white' ? whitePercentage : blackPercentage) + '%' }">
+            <div v-if="(boardOrientation !== 'white' ? whitePercentage : blackPercentage) > 15" class="eval-text"
+              :class="boardOrientation !== 'white' ? 'white-text' : 'black-text'">
               {{ formatEvaluation() }}
             </div>
           </div>
         </template>
-        
+
         <template v-else>
           <!-- Disabled state - neutral position -->
           <div class="eval-section black-section" style="height: 50%"></div>
           <div class="eval-section white-section" style="height: 50%"></div>
         </template>
       </div>
-      
+
       <!-- Center line -->
       <div class="center-line"></div>
-      
+
       <!-- Loading overlay -->
       <div v-if="loading && enabled" class="loading-overlay">
         <div class="spinner"></div>
       </div>
-      
+
       <!-- Disabled overlay -->
       <div v-if="!enabled" class="disabled-overlay">
         <span class="disabled-text">OFF</span>
       </div>
     </div>
-    
+
     <!-- Evaluation details -->
     <div v-if="evaluation && enabled" class="evaluation-details">
       <!-- <div class="best-move">
@@ -61,10 +53,14 @@
         Win: {{ Math.round(evaluation.winprob * 10) }}%
       </div> -->
     </div>
-    
+
     <!-- Error display -->
-    <div v-if="error && enabled" class="error-message">
-      {{ error }}
+    <div v-if="error && enabled" class="error-container">
+      <i class="material-icons" @mouseover="isErrorTooltipVisible = true" @mouseleave="isErrorTooltipVisible = false"
+        style="color: #ff6b6b;">error</i>
+      <div class="error-tooltip bg-danger">
+        {{ error }}
+      </div>
     </div>
   </div>
 </template>
@@ -108,6 +104,7 @@ const loading = ref(false)
 const error = ref(null)
 const evaluationSideToMove = ref(true) // Store whose turn it was when evaluation was calculated
 const lastValidPercentage = ref(50) // Store the last valid percentage to avoid flipping during loading
+const isErrorTooltipVisible = ref(false)
 
 // Helper function to determine whose turn it is from FEN
 const isWhiteToMove = computed(() => {
@@ -305,6 +302,44 @@ watch([evaluation, loading], ([newEval, isLoading]) => {
 </script>
 
 <style scoped>
+/* styles */
+.error-container {
+  position: relative;      /* important */
+  display: inline-block;   /* so hover works neatly around the icon */
+}
+
+.error-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  position: absolute;
+  z-index: 9999;           /* sit above surrounding UI */
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #ff4444; /* avoid mixing with .bg-danger while testing */
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.error-tooltip::after {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #ff4444 transparent transparent transparent;
+}
+
+.error-container:hover .error-tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
+
 .evaluation-container {
   display: flex;
   flex-direction: column;
@@ -452,8 +487,13 @@ watch([evaluation, loading], ([newEval, isLoading]) => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .error-message {
