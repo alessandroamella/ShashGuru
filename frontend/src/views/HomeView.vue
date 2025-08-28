@@ -268,6 +268,12 @@ function setMovesFromPGN(payload) {
     whitePlayer.value = payload.headers.White;
     blackPlayer.value = payload.headers.Black;
     gameResult.value = payload.headers.Result || '-';
+    if (gameResult.value === '*') {
+      gameResult.value = 'Ongoing';
+    }
+    else if (gameResult.value === '1/2-1/2') {
+      gameResult.value = '½-½';
+    }
     hasPlayerInfo.value = true;
   } else {
     whitePlayer.value = '';
@@ -768,13 +774,10 @@ watch(selectedMoveIndex, async () => {
 
 .moves-header {
   background-color: #444;
-  
   padding: 8px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  
-  
   
 }
 

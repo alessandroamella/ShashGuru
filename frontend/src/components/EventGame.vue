@@ -129,7 +129,6 @@ function handleBoardCreated(api) {
 
 onMounted(() => {
     if (props.pgn) {
-
         fen.value = pgnToFen(props.pgn);
         boardAPI.value.setPosition(fen.value);
 

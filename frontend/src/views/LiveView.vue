@@ -1,6 +1,7 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, nextTick } from 'vue'
 import EventGame from '@/components/EventGame.vue'
+import EventSection from '@/components/EventSection.vue'
 
 const eventId = ref('sO7W9Jje')      // Example tournament ID
 const roundId = ref('')              // Set directly or extract from URL
@@ -21,7 +22,6 @@ async function fetchEvent() {
     const res = await fetch(`https://lichess.org/api/broadcast/${eventId.value}`)
     if (!res.ok) throw new Error('Event not found')
     const data = await res.json()
-    console.log('Event data:', data)
 
     // Pick default round if available
     roundId.value = data.defaultRoundId || (data.rounds[0] && data.rounds[0].id) || ''
@@ -39,20 +39,18 @@ function splitPGNs(pgnText) {
 
 async function fetchQueriedPgn() {
   if (searchInput.value.startsWith('http') || searchInput.value.includes('lichess.org')) {
-    console.log("Setting from URL")
     setFromUrl(searchInput.value) // Extract IDs from URL
   } else {
     roundId.value = searchInput.value.trim()
   }
   if (roundId.value) {
-    console.log("roundId.value", roundId.value)
     const pgnAsked = await fetchPgn(roundId.value)
-    console.log('Queried PGN:', pgnAsked)
     if (pgnAsked) {
       pgnListAsked.value = splitPGNs(pgnAsked)
-      console.log('Fetched Queried PGN:', pgnListAsked.value)
       if (!searchHasHappened.value) {
         searchHasHappened.value = true
+        await nextTick()
+        document.getElementById("queried-results")?.scrollIntoView({ behavior: "smooth" })
       }
     }
   }
@@ -63,10 +61,15 @@ async function fetchPgnFeatured() {
   const pgnFeatured = await fetchPgn(featuredEvent.value)
   if (pgnFeatured !== null) {
     pgnListFeatured.value = splitPGNs(pgnFeatured)
-    console.log('Fetched Featured Event PGN:', pgnListFeatured.value)
   }
 }
 
+function cleanPgnFromComments(pgn) {
+  // Remove comments and NAGs from PGN for cleaner display
+  return pgn.replace(/\{[^}]*\}/g, '') // Remove comments {...}
+    .replace(/\$\d+/g, '')  // Remove NAGs like $1, $2, etc.
+    .trim()
+}
 
 // Fetch PGNs of a specific round
 async function fetchPgn(idToFetch) {
@@ -77,7 +80,7 @@ async function fetchPgn(idToFetch) {
     const res = await fetch(`https://lichess.org/api/broadcast/round/${idToFetch}.pgn`)
     if (!res.ok) throw new Error('Could not fetch PGN')
     pgnText = await res.text()
-    console.log('Fetched PGN:', pgnText)
+    pgnText = cleanPgnFromComments(pgnText)
     loading.value = false
     return pgnText
   } catch (err) {
@@ -102,7 +105,7 @@ function setFromUrl(url) {
 
 onMounted(() => {
   // Automatically fetch event info on mount
-  featuredEvent.value = import.meta.env.FEATURED_EVENT_ID || 'KuHOrw9a' // Test featured event ID, should be null in production
+  featuredEvent.value = import.meta.env.FEATURED_EVENT_ID || 'bFcndX91' // Test featured event ID, should be null in production
   fetchPgnFeatured();
   //fetchTopEvents();
 })
@@ -140,43 +143,24 @@ onMounted(() => {
     </div>
   </div>
 
-
-  <!-- Search results -->
-  <div v-if="searchHasHappened" class="d-flex flex-row align-items-start p-3 ms-5 cursor-pointer"
-    @click="isQueriedVisibile = !isQueriedVisibile">
-    <div class="fs-3 flex-shrink-0">
-      Your Event<span class="material-icons ms-1">{{ isQueriedVisibile ? 'keyboard_arrow_down' : 'chevron_right'
-        }}</span>
-    </div>
-  </div>
-
-  <!-- Transition wrapper -->
-  <transition name="slide">
-    <div v-if="(roundId !== null && roundId !== '') && isQueriedVisibile" class="d-flex flex-row flex-wrap mx-5">
-      <EventGame :pgn="pgn" v-for="pgn in pgnListAsked" :key="pgn.index" class="flex-item" />
-    </div>
+  <!-- Queried Event -->
+  <transition name="fade-highlight">
+    <EventSection v-if="searchHasHappened && roundId" title="Your Event" :pgnList="pgnListAsked"
+      :shouldRender="searchHasHappened" initiallyOpen id="queried-results"/>
   </transition>
 
-  <!-- Featured event -->
-  <div class="d-flex flex-row align-items-start p-3 ms-5 cursor-pointer"
-    @click="isFeatureVisibile = !isFeatureVisibile">
-    <div class="fs-3 flex-shrink-0">
-      <span> Featured Events</span><span class="material-icons ms-1">{{ isFeatureVisibile ? 'keyboard_arrow_down' :
-        'chevron_right'
-        }}</span>
-    </div>
-  </div>
+  <!-- Featured Event -->
+  <EventSection v-if="featuredEvent" title="Featured Events" :pgnList="pgnListFeatured" :shouldRender="featuredEvent" initiallyOpen />
 
-  <!-- Transition wrapper -->
-  <transition name="slide">
-    <div v-if="featuredEvent && isFeatureVisibile" class="d-flex flex-row justify-content-start flex-wrap mx-5">
-      <EventGame :pgn="pgn" v-for="pgn in pgnListFeatured" :key="pgn.index" class="flex-item" />
-    </div>
-  </transition>
+  <footer class="mb-5"></footer>
 </template>
 
 
 <style scoped>
+
+
+
+
 #search-group,
 #input-event {
   background-color: #232323 !important;
@@ -201,42 +185,4 @@ onMounted(() => {
   color: white;
 }
 
-.cursor-pointer {
-  cursor: pointer;
-}
-
-.transition-transform {
-  transition: transform 0.3s ease;
-}
-
-.rotate-90 {
-  transform: rotate(90deg);
-}
-
-.toggle-arrow {
-  font-size: 1.5rem;
-  /* make icon size match your text */
-  line-height: 1;
-  /* removes extra vertical padding */
-  vertical-align: middle;
-}
-
-.slide-enter-active,
-.slide-leave-active {
-  transition: max-height 0.3s ease, opacity 0.3s ease;
-  overflow: hidden;
-}
-
-.slide-enter-from,
-.slide-leave-to {
-  max-height: 0;
-  opacity: 0;
-}
-
-.slide-enter-to,
-.slide-leave-from {
-  max-height: 1000px;
-  /* something large enough for your content */
-  opacity: 1;
-}
 </style>
