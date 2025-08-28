@@ -774,13 +774,10 @@ watch(selectedMoveIndex, async () => {
 
 .moves-header {
   background-color: #444;
-  
   padding: 8px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  
-  
   
 }
 
