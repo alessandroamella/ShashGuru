@@ -2,7 +2,7 @@
     <div v-if="shouldRender" class="card-like event-section mx-5 mb-3">
         <!-- Header -->
         <div class="d-flex flex-row align-items-start p-3 cursor-pointer event-header" @click="isVisible = !isVisible">
-            <div class="fs-3 flex-shrink-0">
+            <div class="fs-4 flex-shrink-0">
                 <span>{{ title }}</span>
                 <span class="material-icons ms-1">
                     {{ isVisible ? 'keyboard_arrow_down' : 'chevron_right' }}
@@ -33,8 +33,9 @@ const props = defineProps({
     shouldRender: { type: Boolean, default: true },
     initiallyOpen: { type: Boolean, default: false }
 })
-const hovered = ref(null)
 const isVisible = ref(props.initiallyOpen)
+
+
 </script>
 
 
