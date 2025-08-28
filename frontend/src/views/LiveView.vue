@@ -1,6 +1,5 @@
 <script setup>
-import { onMounted, ref, nextTick } from 'vue'
-import EventGame from '@/components/EventGame.vue'
+import { onMounted, ref, nextTick, computed } from 'vue'
 import EventSection from '@/components/EventSection.vue'
 
 const eventId = ref('sO7W9Jje')      // Example tournament ID
@@ -100,8 +99,11 @@ function setFromUrl(url) {
   } catch (err) {
     error.value = 'Invalid URL format'
   }
-
 }
+
+const featuredEventTitle = computed(() => {
+  return pgnListFeatured.value[0].match(/\[Event "(.*?)"\]/)?.[1] || 'Event Name Unknown'
+})
 
 onMounted(() => {
   // Automatically fetch event info on mount
@@ -145,22 +147,20 @@ onMounted(() => {
 
   <!-- Queried Event -->
   <transition name="fade-highlight">
-    <EventSection v-if="searchHasHappened && roundId" title="Your Event" :pgnList="pgnListAsked"
-      :shouldRender="searchHasHappened" initiallyOpen id="queried-results"/>
+    <EventSection v-if="searchHasHappened && roundId && isQueriedVisibile" :title="queriedEventTitle || 'Your Query'" :pgnList="pgnListAsked"
+      :shouldRender="searchHasHappened" initiallyOpen id="queried-results" />
   </transition>
 
+  <div v-if="featuredEvent" class="fs-3 ms-5 m-4">Featured Event</div>
   <!-- Featured Event -->
-  <EventSection v-if="featuredEvent" title="Featured Events" :pgnList="pgnListFeatured" :shouldRender="featuredEvent" initiallyOpen />
+  <EventSection v-if="featuredEvent" :title="featuredEventTitle || 'Featured Event'" :pgnList="pgnListFeatured"
+    :shouldRender="isFeatureVisibile" initiallyOpen />
 
   <footer class="mb-5"></footer>
 </template>
 
 
 <style scoped>
-
-
-
-
 #search-group,
 #input-event {
   background-color: #232323 !important;
@@ -184,5 +184,4 @@ onMounted(() => {
   border: 1px solid #aaa23a !important;
   color: white;
 }
-
 </style>
