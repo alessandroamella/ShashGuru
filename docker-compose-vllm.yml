@@ -42,7 +42,7 @@ services:
     expose:
       - 8000
     cpuset: "0-42,256-298"
-    # restart: unless-stopped
+    restart: unless-stopped
     mem_limit: 64g
     shm_size: 16g
     volumes:
