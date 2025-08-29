@@ -246,7 +246,6 @@ async function regenerateMessage(index) {
     userInput.value = lastUserMessage.content;
     messages.value.splice(index - 1, 2);
     await sendMessageSTREAMED()
-
 }
 
 
@@ -270,8 +269,8 @@ async function regenerateMessage(index) {
                     <h6 class="mb-0">AI:</h6>
                     <div class="text-break text-start message" v-html="renderedMarkdown(message.content)"></div>
                     <!-- Action buttons (copy / retry) -->
-                    <div class="d-flex message-actions">
-                        <span v-if="!justCopiedMsg" class="material-icons-outlined p-2 fs-5" role="button" title="Copia"
+                    <div v-if="!loading" class="d-flex message-actions">
+                        <span v-if="!justCopiedMsg " class="material-icons-outlined p-2 fs-5" role="button" title="Copia"
                             @click="copyMessage(message.content)">
                             content_copy
                         </span>
