@@ -24,6 +24,7 @@ const userInput = ref('');
 const messages = ref([]);
 const loading = ref(false)
 const toAnalyse = ref(true);
+const justCopiedMsg = ref(false);
 // Methods
 
 async function sendMessageSTREAMED() {
@@ -34,7 +35,7 @@ async function sendMessageSTREAMED() {
     userInput.value = '';
     loading.value = true;
     emit('loadingChat', true);
-    scrollToBottom();    
+    scrollToBottom();
 
     try {
         const response = await fetch(server_url + '/response', {
@@ -146,14 +147,14 @@ async function startAnalysisSTREAMED() {
                             const promptData = JSON.parse(promptPart);
                             systemPrompt = promptData.prompt;
                             promptReceived = true;
-                            
+
                             // Store the system prompt as the first message
                             messages.value.unshift({
                                 role: 'system',
                                 content: systemPrompt,
                                 hidden: true // Optional: hide from UI
                             });
-                            
+
                             // Remove the prompt part from the chunk
                             chunk = chunk.substring(promptEndIndex + '[PROMPT_END]'.length);
                         } catch (e) {
@@ -176,7 +177,7 @@ async function startAnalysisSTREAMED() {
 
                 fullMessageANALYSIS += chunk;
                 messages.value[messages.value.length - 1].content = fullMessageANALYSIS;
-                scrollToBottom();   
+                scrollToBottom();
             }
 
             // Final cleanup
@@ -200,8 +201,8 @@ watch(() => props.fen, () => {
     toAnalyse.value = true;
 });
 // Add this watcher
-watch(() => messages.value.length,  () => {
-   scrollToBottom();
+watch(() => messages.value.length, () => {
+    scrollToBottom();
 });
 function renderedMarkdown(content) {
     return md.render(content)
@@ -218,6 +219,37 @@ function scrollToBottom() {
         }
     });
 }
+
+// Copy text to clipboard
+async function copyMessage(text) {
+    try {
+        await navigator.clipboard.writeText(text)
+        justCopiedMsg.value = true
+        setTimeout(() => {
+            justCopiedMsg.value = false
+        }, 1000);
+    } catch (err) {
+        console.error("Copying failed:", err)
+    }
+}
+
+//  Regenerate assistant reply
+
+async function regenerateMessage(index) {
+    const lastUserIndex = messages.value
+        .slice(0, index)
+        .map((msg, i) => ({ msg, i }))
+        .reverse()
+        .find(item => item.msg.role === 'user')?.i;
+    if (lastUserIndex === undefined) return;
+    const lastUserMessage = messages.value[lastUserIndex];
+    userInput.value = lastUserMessage.content;
+    messages.value.splice(index - 1, 2);
+    await sendMessageSTREAMED()
+
+}
+
+
 </script>
 
 
@@ -225,7 +257,7 @@ function scrollToBottom() {
     <div class="container-fill d-flex flex-column  overflow-auto p-3 me-0  rounded-4 w-100 h-100">
         <!-- Chat Messages -->
         <div id="messages" class=" flex-grow-1 h-100" style="scroll-behavior: smooth;">
-            
+
             <div v-for="(message, i) in messages" :key="i">
                 <div v-if="message.role === 'user'" class="d-flex mb-1 justify-content-end">
                     <div class="p-3 px-4 rounded-4 ms-5" id="usermessage">
@@ -237,6 +269,20 @@ function scrollToBottom() {
                 <div v-else-if="message.role === 'assistant'" class="p-3 pe-4 rounded-4 me-5">
                     <h6 class="mb-0">AI:</h6>
                     <div class="text-break text-start message" v-html="renderedMarkdown(message.content)"></div>
+                    <!-- Action buttons (copy / retry) -->
+                    <div class="d-flex message-actions">
+                        <span v-if="!justCopiedMsg" class="material-icons-outlined p-2 fs-5" role="button" title="Copia"
+                            @click="copyMessage(message.content)">
+                            content_copy
+                        </span>
+                        <span v-else class="material-icons-outlined p-2 fs-5" role="button" title="Copiato!">
+                            check
+                        </span>
+                        <span class="material-icons-outlined p-2 fs-5" role="button" title="Rigenera"
+                            @click="regenerateMessage(i)">
+                            refresh
+                        </span>
+                    </div>
                 </div>
             </div>
             <div v-if="loading" class="thinking-indicator p-3 pe-4 rounded-4 me-5">
@@ -245,14 +291,14 @@ function scrollToBottom() {
                 </div>
             </div>
         </div>
-        
+
         <!-- AI Content Disclaimer -->
         <div class="disclaimer-text text-center mt-2 mb-2">
             <small class="text-secondary">
                 AI-generated content may contain errors or inaccuracies. Please verify important information.
             </small>
         </div>
-        
+
         <div class="flex-shrink-0">
             <div v-if="toAnalyse" class="flex-item d-flex justify-content-center">
                 <button type="button"
@@ -271,6 +317,18 @@ function scrollToBottom() {
 </template>
 
 <style scoped>
+.message-actions {
+    color: #bbb;
+}
+
+.message-actions>span {
+    border-radius: 50%;
+}
+
+.message-actions>span:hover {
+    background-color: #ffffff1e;
+}
+
 .custom-box {
     background-color: #2e2e2e;
     border-color: #2e2e2e !important;
