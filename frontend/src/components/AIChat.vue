@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, onMounted } from 'vue';
 import { validateFen } from 'fentastic';
 import MarkdownIt from 'markdown-it';
 
@@ -25,6 +25,9 @@ const messages = ref([]);
 const loading = ref(false)
 const toAnalyse = ref(true);
 const justCopiedMsg = ref(false);
+
+const isClipboardCopyingAvailable = ref(true)
+
 // Methods
 
 async function sendMessageSTREAMED() {
@@ -248,6 +251,10 @@ async function regenerateMessage(index) {
     await sendMessageSTREAMED()
 }
 
+onMounted(() =>{
+    isClipboardCopyingAvailable.value = navigator.clipboard.writeText ? true : false
+    
+})
 
 </script>
 
@@ -269,7 +276,7 @@ async function regenerateMessage(index) {
                     <h6 class="mb-0">AI:</h6>
                     <div class="text-break text-start message" v-html="renderedMarkdown(message.content)"></div>
                     <!-- Action buttons (copy / retry) -->
-                    <div v-if="!loading" class="d-flex message-actions">
+                    <div v-if="!loading && isClipboardCopyingAvailable " class="d-flex message-actions">
                         <span v-if="!justCopiedMsg " class="material-icons-outlined p-2 fs-5" role="button" title="Copia"
                             @click="copyMessage(message.content)">
                             content_copy
