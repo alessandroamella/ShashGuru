@@ -793,12 +793,15 @@ watch(selectedMoveIndex, async () => {
 .tab-navigation {
   background-color: #1a1916;
   border-bottom: 1px solid #3a3a3a;
+  border-top-right-radius: 1em; 
+  border-top-left-radius: 1em; 
 }
 
 .tab-button {
   background-color: transparent;
   color: #b2b2b2;
   transition: all 0.3s ease;
+  
   border-bottom: 3px solid transparent !important;
 }
 
@@ -808,13 +811,20 @@ watch(selectedMoveIndex, async () => {
 }
 
 .tab-active {
-  background-color: #262421 !important;
+  background-color: #2f2d2a !important;
   color: #aaa23a !important;
   border-bottom: 3px solid #aaa23a !important;
+  border-top-right-radius: 1em;
+  border-top-left-radius: 1em;
+  
 }
 
 .tab-inactive {
-  background-color: #1a1916;
+  background-color: #262421;
+  border-top-right-radius: 1em;
+  border-top-left-radius: 1em;
+  border-bottom: 3px solid #262421 !important;
+
 }
 
 .tab-content {
