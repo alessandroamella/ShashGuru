@@ -116,9 +116,8 @@ function parseMoves(movesString) {
     if (!cleanUciMove) return
     
     try {
-      const options = {permissive: true};
       // Convert UCI to SAN using chess.js
-      const move = chess.move(cleanUciMove, options)
+      const move = chess.move(cleanUciMove)
       if (move) {
         parsedMoves.push({
           san: move.san,

@@ -49,7 +49,7 @@ async function fetchQueriedPgn() {
       if (!searchHasHappened.value) {
         searchHasHappened.value = true
         await nextTick()
-        document.getElementById("queried-results")?.scrollIntoView({ behavior: "smooth" })
+
       }
     }
   }
@@ -102,7 +102,9 @@ function setFromUrl(url) {
 }
 
 const featuredEventTitle = computed(() => {
-  return pgnListFeatured.value[0].match(/\[Event "(.*?)"\]/)?.[1] || 'Event Name Unknown'
+  if (!pgnListFeatured.value.length) return 'Loading Event Title...'
+  const match = pgnListFeatured.value[0].match(/\[Event "(.*?)"\]/)
+  return match ? match[1] : 'Event Name Unknown'
 })
 
 onMounted(() => {
@@ -146,10 +148,10 @@ onMounted(() => {
   </div>
 
   <!-- Queried Event -->
-  <transition name="fade-highlight">
-    <EventSection v-if="searchHasHappened && roundId && isQueriedVisibile" :title="queriedEventTitle || 'Your Query'" :pgnList="pgnListAsked"
-      :shouldRender="searchHasHappened" initiallyOpen id="queried-results" />
-  </transition>
+
+  <EventSection v-if="searchHasHappened && roundId && isQueriedVisibile" :title="queriedEventTitle || 'Your Query'"
+    :pgnList="pgnListAsked" :shouldRender="searchHasHappened" initiallyOpen id="queried-results" />
+
 
   <div v-if="featuredEvent" class="fs-3 ms-5 m-4">Featured Event</div>
   <!-- Featured Event -->
