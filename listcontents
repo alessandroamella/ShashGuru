@@ -1,3 +1,3 @@
 #!/bin/bash
 
-listcontents -e COPYING .vite/deps config/grafana.json aa | c
+listcontents -e COPYING .vite/deps config/grafana.json
