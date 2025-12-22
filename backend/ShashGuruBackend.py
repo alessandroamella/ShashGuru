@@ -243,6 +243,9 @@ def evaluation():
         # Get engine analysis
         bestmoves, ponder = engineCommunication.call_engine(fen, depth, lines=lines)
 
+        if bestmoves:
+            bestmoves = [m for m in bestmoves if m is not None]
+
         # Format the response to match frontend expectations
         evaluation_data = {
             "evaluation": {
@@ -268,6 +271,7 @@ def evaluation():
                         ),
                     }
                     for move_data in bestmoves[:lines]
+                    if move_data is not None
                 ],
             }
         }

@@ -264,7 +264,7 @@ def create_prompt_single_engine(fen, bestmoves, ponder, style="default"):
     # Generate analysis for top 3 moves
     moves_analysis = []
     for idx, move_data in enumerate(bestmoves[:3]):
-        if not move_data["pv_moves"]:
+        if not move_data or not move_data.get("pv_moves"):
             continue
 
         move_uci = move_data["pv_moves"][0]

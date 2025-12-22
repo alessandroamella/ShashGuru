@@ -615,7 +615,9 @@ def _analyze_position_with_engine(engine, fen, depth, lines, timeout=30):
                     ponder = parts[3]
                 break
 
-        return bestmoves, ponder
+        # Clean None entries from bestmoves
+        clean_bestmoves = [move for move in bestmoves if move is not None]
+        return clean_bestmoves, ponder
 
     except Exception as e:
         engine.stdin.write("stop\n")
