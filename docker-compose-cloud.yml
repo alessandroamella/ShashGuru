@@ -36,7 +36,8 @@ services:
       - LLM_MODEL=${LLM_MODEL:-llama-3.1-8b-instant}
       - USE_CLOUD_AI=true
       # Chess engine settings
-      - ENGINE_POOL_SIZE=1
+      - ENGINE_POOL_SIZE=4
+      - CPU_COUNT=1
     depends_on:
       - redis
 

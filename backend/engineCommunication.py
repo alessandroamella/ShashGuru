@@ -512,7 +512,7 @@ def _analyze_position_with_cache_and_engine(cache, engine, fen, depth, lines):
     return result
 
 
-def _analyze_position_with_engine(engine, fen, depth, lines, timeout=10):
+def _analyze_position_with_engine(engine, fen, depth, lines, timeout=30):
     """
     Analyze a specific position with an already initialized engine.
 
