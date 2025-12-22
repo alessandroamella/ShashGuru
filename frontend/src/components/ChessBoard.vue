@@ -1,17 +1,30 @@
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, nextTick, watch } from 'vue';
-import { TheChessboard } from 'vue3-chessboard';
-import 'vue3-chessboard/style.css';
-import { Chess } from 'chess.js'
-import EvaluationBar from './EvaluationBar.vue'
-import EvaluationSettings from './EvaluationSettings.vue'
-import { DEFAULT_DEPTH, DEFAULT_SHOW_LINES, DEFAULT_EVALUATION_ENABLED, DEFAULT_SHOW_BEST_MOVE } from '@/constants/evaluation.js'
-import { useChessStore } from '@/stores/useChessStore'; // TODO: Refactor to only use pinia store for PGN management
-import { storeToRefs } from 'pinia';
+import { nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+import { TheChessboard } from "vue3-chessboard";
+import "vue3-chessboard/style.css";
+import { Chess } from "chess.js";
+import { storeToRefs } from "pinia";
+import {
+	DEFAULT_DEPTH,
+	DEFAULT_EVALUATION_ENABLED,
+	DEFAULT_SHOW_BEST_MOVE,
+	DEFAULT_SHOW_LINES,
+} from "@/constants/evaluation.js";
+import { useChessStore } from "@/stores/useChessStore"; // TODO: Refactor to only use pinia store for PGN management
+import EvaluationBar from "./EvaluationBar.vue";
+import EvaluationSettings from "./EvaluationSettings.vue";
 
 const chessStore = useChessStore();
 const currentPGN = storeToRefs(chessStore).currentPGN;
-const emit = defineEmits(['updateFen', 'setMovesFromPGN', 'moveAdded', 'engineEvaluationUpdate', 'showLinesUpdate', 'evaluationLoadingUpdate', 'depthUpdate']);
+const emit = defineEmits([
+	"updateFen",
+	"setMovesFromPGN",
+	"moveAdded",
+	"engineEvaluationUpdate",
+	"showLinesUpdate",
+	"evaluationLoadingUpdate",
+	"depthUpdate",
+]);
 
 const boardAPI = ref(null);
 const chessboardHeight = ref(400); // Default height
@@ -24,271 +37,294 @@ const showLines = ref(DEFAULT_SHOW_LINES);
 
 // Watch for showLines changes and emit to parent
 watch(showLines, (newValue) => {
-  emit('showLinesUpdate', newValue);
+	emit("showLinesUpdate", newValue);
 });
 
 // Watch for evaluationDepth changes and emit to parent
 watch(evaluationDepth, (newValue) => {
-  emit('depthUpdate', newValue);
+	emit("depthUpdate", newValue);
 });
 
-
 // Board orientation tracking
-const boardOrientation = ref('white'); // 'white' or 'black'
+const boardOrientation = ref("white"); // 'white' or 'black'
 
 // Engine evaluation data
 const engineEvaluation = ref({
-  bestMove: null,
-  evaluation: null,
-  depth: 0,
-  lines: []
+	bestMove: null,
+	evaluation: null,
+	depth: 0,
+	lines: [],
 });
 
 // Settings modal
 const showSettings = ref(false);
 
 const boardConfig = reactive({
-  fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", // Starting FEN
-  coordinates: true,
-  autoCastle: true,
-  highlight: {
-    lastMove: true,
-    check: true,
-  },
-  events: {
-    select: () => {
-      drawBestMovesArrows();
-    }
-  }
+	fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", // Starting FEN
+	coordinates: true,
+	autoCastle: true,
+	viewOnly: false,
+	highlight: {
+		lastMove: true,
+		check: true,
+	},
+	events: {
+		select: () => {
+			drawBestMovesArrows();
+		},
+	},
 });
 
+// Watcher per disabilitare interazione
+watch(
+	() => props.viewOnly,
+	(val) => {
+		boardConfig.viewOnly = val;
+		// Purtroppo vue3-chessboard potrebbe non reagire dinamicamente a viewOnly dentro boardConfig.
+		// Un trucco sporco ma efficace è nascondere i pezzi trascinabili o forzare un re-render se necessario.
+		// MA: vue3-chessboard supporta la prop view-only direttamente sul componente?
+		// Verifichiamo: Se TheChessboard supporta :board-config, aggiorniamo l'oggetto reattivo.
+
+		// Se la libreria non reagisce, possiamo resettare la boardAPI con la nuova config
+		if (boardAPI.value) {
+			// boardAPI non ha un metodo setViewOnly standard, ma aggiornando l'oggetto reattivo
+			// passato al componente spesso funziona.
+		}
+	},
+	{ immediate: true },
+);
 
 // --- ROBA NUOVA ---
 
 const props = defineProps({
-  fenProp: {
-    type: String,
-    required: false
-  }
+	fenProp: {
+		type: String,
+		required: false,
+	},
+	viewOnly: { type: Boolean, default: false },
 });
 
 // Watch for fen changes from parent and update board
-watch(() => props.fenProp, (newFen) => {
-  if (newFen && boardAPI.value) {
-    fen.value = newFen;
-    boardAPI.value.setPosition(newFen);
-
-  }
-});
-
-
+watch(
+	() => props.fenProp,
+	(newFen) => {
+		if (newFen && boardAPI.value) {
+			fen.value = newFen;
+			boardAPI.value.setPosition(newFen);
+		}
+	},
+);
 
 //--- FINE
 
-
 const fen = ref(boardConfig.fen);
-const pgn = ref('');
-const side = ref('')
+const pgn = ref("");
+const side = ref("");
 
 watch(fen, () => {
-  side.value = fen.value.split(" ")[1]
-  console.log(side.value)
-  // Update board position when FEN changes
-  if (fen.value.trim() && boardAPI.value) {
-    try {
-      boardAPI.value.setPosition(fen.value.trim());
-      emit("updateFen", fen.value.trim());
-    } catch (error) {
-      console.error('Invalid FEN position:', error);
-    }
-  }
-})
+	side.value = fen.value.split(" ")[1];
+	console.log(side.value);
+	// Update board position when FEN changes
+	if (fen.value.trim() && boardAPI.value) {
+		try {
+			boardAPI.value.setPosition(fen.value.trim());
+			emit("updateFen", fen.value.trim());
+		} catch (error) {
+			console.error("Invalid FEN position:", error);
+		}
+	}
+});
 
 // --- Event Handlers ---
 
 function handleBoardCreated(api) {
-  boardAPI.value = api;
-  // Get chessboard height after it's created
-  nextTick(() => {
-    updateChessboardHeight();
-  });
+	boardAPI.value = api;
+	// Get chessboard height after it's created
+	nextTick(() => {
+		updateChessboardHeight();
+	});
 }
 
 function drawBestMovesArrows() {
-  if (showBestMoveArrow.value && engineEvaluation.value?.bestMove) {
-    if (engineEvaluation.value.fen === fen.value) {
-      boardAPI.value?.drawMove(
-        engineEvaluation.value.bestMove.slice(0, 2),
-        engineEvaluation.value.bestMove.slice(2, 4),
-        'paleBlue',
-      );
-    }
-  }
+	if (showBestMoveArrow.value && engineEvaluation.value?.bestMove) {
+		if (engineEvaluation.value.fen === fen.value) {
+			boardAPI.value?.drawMove(
+				engineEvaluation.value.bestMove.slice(0, 2),
+				engineEvaluation.value.bestMove.slice(2, 4),
+				"paleBlue",
+			);
+		}
+	}
 }
 
 // Method to receive evaluation data from EvaluationBar
 function handleEvaluationUpdate(evalData) {
-  engineEvaluation.value = evalData;
-  drawBestMovesArrows();
-  // Emit the evaluation update to parent component
-  emit('engineEvaluationUpdate', evalData);
+	engineEvaluation.value = evalData;
+	drawBestMovesArrows();
+	// Emit the evaluation update to parent component
+	emit("engineEvaluationUpdate", evalData);
 }
 
 // Method to handle loading state from EvaluationBar
 function handleEvaluationLoadingUpdate(isLoading) {
-  emit('evaluationLoadingUpdate', isLoading);
+	emit("evaluationLoadingUpdate", isLoading);
 }
 
 function updateChessboardHeight() {
-  if (boardAPI.value) {
-    try {
-      const boardElement = boardAPI.value.board.el;
-      if (boardElement) {
-        const rect = boardElement.getBoundingClientRect();
-        chessboardHeight.value = rect.height || 400;
-      }
-    } catch (error) {
-      console.error('Could not get board height, using default', error);
-      chessboardHeight.value = 400;
-    }
-  }
+	if (boardAPI.value) {
+		try {
+			const boardElement = boardAPI.value.board.el;
+			if (boardElement) {
+				const rect = boardElement.getBoundingClientRect();
+				chessboardHeight.value = rect.height || 400;
+			}
+		} catch (error) {
+			console.error("Could not get board height, using default", error);
+			chessboardHeight.value = 400;
+		}
+	}
 }
 
 function handleCheckmate(isMated) {
-  if (isMated === 'w') {
-    alert('Black wins by checkmate!');
-  } else if (isMated === 'b') {
-    alert('White wins by checkmate!');
-  }
+	if (isMated === "w") {
+		alert("Black wins by checkmate!");
+	} else if (isMated === "b") {
+		alert("White wins by checkmate!");
+	}
 }
 
 function handleMove(move) {
-  const newFen = move.after;
-  fen.value = newFen;
-  emit("updateFen", newFen);
+	const newFen = move.after;
+	fen.value = newFen;
+	emit("updateFen", newFen);
 
-  // Emit the move to be added to the tree structure
-  emit("moveAdded", {
-    move: move.san || move.notation,
-    fen: newFen,
-    from: move.from,
-    to: move.to
-  });
+	// Emit the move to be added to the tree structure
+	emit("moveAdded", {
+		move: move.san || move.notation,
+		fen: newFen,
+		from: move.from,
+		to: move.to,
+	});
 }
 
 // --- Board Control ---
 
 function toggleOrientation() {
-  boardAPI.value?.board.toggleOrientation();
-  boardOrientation.value = boardOrientation.value === 'white' ? 'black' : 'white';
-  // Update height after orientation change
-  nextTick(() => {
-    updateChessboardHeight();
-  });
+	boardAPI.value?.board.toggleOrientation();
+	boardOrientation.value =
+		boardOrientation.value === "white" ? "black" : "white";
+	// Update height after orientation change
+	nextTick(() => {
+		updateChessboardHeight();
+	});
 }
 
 function resetBoard() {
-  boardAPI.value?.resetBoard();
-  fen.value = boardConfig.fen;
-  emit("updateFen", boardConfig.fen);
-  
-  // Reset engine evaluation data
-  engineEvaluation.value = {
-    bestMove: null,
-    evaluation: null,
-    depth: 0,
-    lines: []
-  };
-  
-  // Emit reset signals to parent
-  emit('engineEvaluationUpdate', engineEvaluation.value);
-  emit('setMovesFromPGN', {
-    fullPGN: '',
-    moves: [],
-    headers: {}
-  });
-  pgn.value = ''; // Reset PGN input
-  chessStore.setPGN(''); // Reset store PGN
-  // Update height after reset
-  nextTick(() => {
-    updateChessboardHeight();
-  });
+	boardAPI.value?.resetBoard();
+	fen.value = boardConfig.fen;
+	emit("updateFen", boardConfig.fen);
+
+	// Reset engine evaluation data
+	engineEvaluation.value = {
+		bestMove: null,
+		evaluation: null,
+		depth: 0,
+		lines: [],
+	};
+
+	// Emit reset signals to parent
+	emit("engineEvaluationUpdate", engineEvaluation.value);
+	emit("setMovesFromPGN", {
+		fullPGN: "",
+		moves: [],
+		headers: {},
+	});
+	pgn.value = ""; // Reset PGN input
+	chessStore.setPGN(""); // Reset store PGN
+	// Update height after reset
+	nextTick(() => {
+		updateChessboardHeight();
+	});
 }
 
 function handlePGN() {
-  const chess = new Chess();
-  const rawPGN = pgn.value.trim();
+	const chess = new Chess();
+	const rawPGN = pgn.value.trim();
 
-  const headerRegex = /\[(\w+)\s+"([^"]+)"\]/g;
-  const headers = {};
-  let match;
+	const headerRegex = /\[(\w+)\s+"([^"]+)"\]/g;
+	const headers = {};
+	let match;
 
-  while ((match = headerRegex.exec(rawPGN)) !== null) {
-    headers[match[1]] = match[2];
-  }
+	while ((match = headerRegex.exec(rawPGN)) !== null) {
+		headers[match[1]] = match[2];
+	}
 
-  const movesOnly = rawPGN.replace(headerRegex, '').replace(/\s+/g, ' ').trim();
+	const movesOnly = rawPGN.replace(headerRegex, "").replace(/\s+/g, " ").trim();
 
-  chess.loadPgn(movesOnly);
+	chess.loadPgn(movesOnly);
 
-  if (chess.history().length === 0) {
-    alert("PGN is invalid or empty.");
-    return;
-  }
+	if (chess.history().length === 0) {
+		alert("PGN is invalid or empty.");
+		return;
+	}
 
-  const finalFEN = chess.fen();
-  fen.value = finalFEN;
-  emit("updateFen", finalFEN);
-  chessStore.setPGN(rawPGN);
-  emit("setMovesFromPGN", {
-    fullPGN: rawPGN,
-    moves: chess.history(),
-    headers,
-  });
+	const finalFEN = chess.fen();
+	fen.value = finalFEN;
+	emit("updateFen", finalFEN);
+	chessStore.setPGN(rawPGN);
+	emit("setMovesFromPGN", {
+		fullPGN: rawPGN,
+		moves: chess.history(),
+		headers,
+	});
 
-  boardAPI.value?.setPosition(finalFEN);
+	boardAPI.value?.setPosition(finalFEN);
 }
 
 // Initialize chessboard height on mount
 onMounted(() => {
-  console.log("STORE PGN",chessStore.currentPGN);
-  pgn.value = chessStore.currentPGN || null;
-  if (pgn.value) {
-    handlePGN();
-  } 
-  // Wait a bit for the chessboard to render
-  setTimeout(() => {
-    updateChessboardHeight();
-  }, 500);
+	console.log("STORE PGN", chessStore.currentPGN);
+	pgn.value = chessStore.currentPGN || null;
+	if (pgn.value) {
+		handlePGN();
+	}
+	// Wait a bit for the chessboard to render
+	setTimeout(() => {
+		updateChessboardHeight();
+	}, 500);
 
-  // Add keyboard listener for modal
-  document.addEventListener('keydown', handleKeydown);
+	// Add keyboard listener for modal
+	document.addEventListener("keydown", handleKeydown);
 });
 
 // Handle keyboard events
 function handleKeydown(event) {
-  if (event.key === 'Escape' && showSettings.value) {
-    showSettings.value = false;
-  }
+	if (event.key === "Escape" && showSettings.value) {
+		showSettings.value = false;
+	}
 }
 watch(currentPGN, (newPGN) => {
-  if (newPGN) {
-    pgn.value = newPGN;
-    handlePGN();
-  }
+	if (newPGN) {
+		pgn.value = newPGN;
+		handlePGN();
+	}
 });
-
 
 // Cleanup on unmount
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown);
+	document.removeEventListener("keydown", handleKeydown);
 });
-
-
 </script>
 
 <template>
-  <div class="chessboard-container" >
+  <div class="chessboard-container position-relative">
+
+    <!-- OVERLAY BLOCCANTE se spettatore -->
+    <div v-if="viewOnly" 
+         class="position-absolute w-100 h-100" 
+         style="z-index: 100; cursor: not-allowed; background: rgba(0,0,0,0.0);">
+    </div>
+
     <div class="board-section w-100">
       <div class="d-flex">
         <section role="region" aria-label="Board Controls" class="board-controls">

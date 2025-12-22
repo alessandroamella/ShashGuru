@@ -45,8 +45,8 @@ engine_path_HUMAN = (
     else f"./executables/{engine_name_HUMAN}"
 )
 
-POOL_SIZE = int(os.environ.get("ENGINE_POOL_SIZE", 8))
-CPU_COUNT = int(os.environ.get("CPU_COUNT", os.cpu_count() or 4))
+POOL_SIZE = int(os.environ.get("ENGINE_POOL_SIZE", 4))
+MAX_THREADS_TO_USE = int(os.environ.get("MAX_ENGINE_THREADS", 8))
 
 
 class EnginePool:
@@ -99,8 +99,7 @@ class EnginePool:
             engine.stdin.flush()
 
             # engine.stdin.write("setoption name Threads value 64\n")
-            n_threads = CPU_COUNT // self.pool_size
-            engine.stdin.write(f"setoption name Threads value {n_threads}\n")
+            engine.stdin.write(f"setoption name Threads value {MAX_THREADS_TO_USE}\n")
             engine.stdin.flush()
             engine.stdin.write("setoption name Hash value 64\n")
             engine.stdin.flush()
@@ -397,9 +396,7 @@ def analyze_pgn_game(pgn_moves, depth=15, lines=3, engine_path=engine_path_NNUE)
         engine.stdin.flush()
 
         # Set optimized options for game analysis
-        # Get the number of available CPUs and divide by pool_size
-        n_threads = CPU_COUNT // POOL_SIZE
-        engine.stdin.write(f"setoption name Threads value {n_threads}\n")
+        engine.stdin.write(f"setoption name Threads value {MAX_THREADS_TO_USE}\n")
         engine.stdin.flush()
         engine.stdin.write("setoption name Hash value 64\n")
         engine.stdin.flush()
