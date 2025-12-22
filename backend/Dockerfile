@@ -2,7 +2,14 @@ FROM ubuntu:24.04
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y libcurl3-gnutls libstdc++6 build-essential python3 python3-pip python3-venv
+RUN apt-get update && apt-get install -y \
+  # libcurl3-gnutls is an older version; libcurl4 is the updated package
+  libcurl4 \
+  libstdc++6 \
+  build-essential \
+  python3 \
+  python3-pip \
+  python3-venv
 
 RUN python3 -m venv /opt/venv
 

@@ -1,0 +1,46 @@
+# version is no longer specified
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "80:80"
+      # Frontend no longer proxies the AI
+    restart: unless-stopped
+    volumes:
+      - ./config/nginx_ai_pc.conf:/etc/nginx/nginx.conf:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    # Remove volumes binding for production so code is baked into the image
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # Point to external service
+      - AI_BASE_URL=https://api.groq.com/openai/v1
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-llama-3.1-8b-instant}
+      - USE_CLOUD_AI=true
+      # Chess engine settings
+      - ENGINE_POOL_SIZE=1
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --appendfsync everysec
+    restart: unless-stopped
+
+volumes:
+  redis-data:

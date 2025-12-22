@@ -79,6 +79,8 @@ class EnginePool:
             engine.stdin.flush()
             engine.stdin.write('setoption name Hash value 64\n')
             engine.stdin.flush()
+            engine.stdin.write('setoption name UCI_ShowWDL value true\n') 
+            engine.stdin.flush()
 
             # Send isready and wait for readyok
             engine.stdin.write('isready\n')
