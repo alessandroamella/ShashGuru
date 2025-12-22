@@ -1,18 +1,18 @@
-#This file is part of ShashGuru, a chess analyzer that takes a FEN, asks a UCI chess engine to analyse it and then outputs a natural language analysis made by an LLM.
-#Copyright (C) 2025  Alessandro Libralesso
+# This file is part of ShashGuru, a chess analyzer that takes a FEN, asks a UCI chess engine to analyse it and then outputs a natural language analysis made by an LLM.
+# Copyright (C) 2025  Alessandro Libralesso
 #
-#This program is free software: you can redistribute it and/or modify
-#it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 3 of the License, or
-#(at your option) any later version.
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 #
-#This program is distributed in the hope that it will be useful,
-#but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#GNU General Public License for more details.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
-#You should have received a copy of the GNU General Public License
-#along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
 import subprocess
@@ -24,22 +24,36 @@ import threading
 import queue
 import time
 import atexit
-import sys
+
+# import sys
 from engineCache import get_cache
-import os
+
+# import os
+
 
 logging.basicConfig(level=logging.INFO)
-engine_name_NNUE = 'shashchess'
-engine_name_HUMAN = 'alexander'
-engine_path_NNUE = f".\\executables\\{engine_name_NNUE}.exe" if os.name == 'nt' else f"./executables/{engine_name_NNUE}"
-engine_path_HUMAN = f".\\executables\\{engine_name_HUMAN}.exe" if os.name == 'nt' else f"./executables/{engine_name_HUMAN}"
+engine_name_NNUE = "shashchess"
+engine_name_HUMAN = "alexander"
+engine_path_NNUE = (
+    f".\\executables\\{engine_name_NNUE}.exe"
+    if os.name == "nt"
+    else f"./executables/{engine_name_NNUE}"
+)
+engine_path_HUMAN = (
+    f".\\executables\\{engine_name_HUMAN}.exe"
+    if os.name == "nt"
+    else f"./executables/{engine_name_HUMAN}"
+)
 
-POOL_SIZE=int(os.environ.get("ENGINE_POOL_SIZE", 8))
+POOL_SIZE = int(os.environ.get("ENGINE_POOL_SIZE", 8))
+CPU_COUNT = int(os.environ.get("CPU_COUNT", os.cpu_count() or 4))
+
 
 class EnginePool:
     """
     Manages a pool of pre-initialized UCI chess engines for better performance.
     """
+
     def __init__(self, engine_path, pool_size=POOL_SIZE):
         self.engine_path = engine_path
         self.pool_size = pool_size
@@ -47,56 +61,67 @@ class EnginePool:
         self.lock = threading.Lock()
         self.shutdown = False
         self._initialize_pool()
-        
+
     def _initialize_pool(self):
         """Initialize all engines in the pool."""
-        logging.info(f"Initializing engine pool with {self.pool_size} engines for {self.engine_path}")
+        logging.info(
+            f"Initializing engine pool with {self.pool_size} engines for {self.engine_path}"
+        )
         for i in range(self.pool_size):
             try:
                 engine = self._create_engine()
                 if engine:
                     self.available_engines.put(engine)
-                    logging.info(f"Engine {i+1}/{self.pool_size} initialized successfully")
+                    logging.info(
+                        f"Engine {i+1}/{self.pool_size} initialized successfully"
+                    )
             except Exception as e:
                 logging.error(f"Failed to initialize engine {i+1}: {e}")
-                
+
     def _create_engine(self):
         """Create and initialize a single engine."""
         try:
             logging.info(f"Creating new engine instance from {self.engine_path}")
-            engine = subprocess.Popen([self.engine_path],
-                                     stdin=subprocess.PIPE,
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE,
-                                     universal_newlines=True)
+            engine = subprocess.Popen(
+                [self.engine_path],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,
+            )
+            if engine.stdin is None or engine.stdout is None:
+                raise RuntimeError("Engine stdin or stdout is None")
+
             os.set_blocking(engine.stdout.fileno(), False)
 
             # Initialize UCI protocol
-            engine.stdin.write('uci\n')
+            engine.stdin.write("uci\n")
             engine.stdin.flush()
 
-            engine.stdin.write('setoption name Threads value 64\n')
+            # engine.stdin.write("setoption name Threads value 64\n")
+            n_threads = CPU_COUNT // self.pool_size
+            engine.stdin.write(f"setoption name Threads value {n_threads}\n")
             engine.stdin.flush()
-            engine.stdin.write('setoption name Hash value 64\n')
+            engine.stdin.write("setoption name Hash value 64\n")
             engine.stdin.flush()
-            engine.stdin.write('setoption name UCI_ShowWDL value true\n') 
+            engine.stdin.write("setoption name UCI_ShowWDL value true\n")
             engine.stdin.flush()
 
             # Send isready and wait for readyok
-            engine.stdin.write('isready\n')
+            engine.stdin.write("isready\n")
             engine.stdin.flush()
 
             return engine
-            
+
         except Exception as e:
             logging.error(f"Failed to create engine: {e}")
             return None
-            
+
     def get_engine(self, timeout=30):
         """Get an available engine from the pool."""
         if self.shutdown:
             return None
-            
+
         try:
             engine = self.available_engines.get(timeout=timeout)
             # Test if engine is still alive
@@ -109,42 +134,42 @@ class EnginePool:
         except queue.Empty:
             logging.warning("No engines available in pool, creating temporary engine")
             return self._create_engine()
-            
+
     def return_engine(self, engine):
         """Return an engine to the pool."""
         if self.shutdown or engine.poll() is not None:
             # Don't return dead engines or during shutdown
             self._cleanup_engine(engine)
             return
-            
+
         try:
             # Reset engine state
-            engine.stdin.write('ucinewgame\n')
+            engine.stdin.write("ucinewgame\n")
             engine.stdin.flush()
-            engine.stdin.write('isready\n')
+            engine.stdin.write("isready\n")
             engine.stdin.flush()
-            
+
             # Wait for readyok with timeout
             start_time = time.time()
             while time.time() - start_time < 5:
                 output = engine.stdout.readline().strip()
-                if output == 'readyok':
+                if output == "readyok":
                     self.available_engines.put(engine)
                     return
-                    
+
             # Timeout - engine is unresponsive
             logging.warning("Engine unresponsive, discarding")
             self._cleanup_engine(engine)
-            
+
         except Exception as e:
             logging.error(f"Error returning engine to pool: {e}")
             self._cleanup_engine(engine)
-            
+
     def _cleanup_engine(self, engine):
         """Safely cleanup an engine."""
         try:
             if engine.poll() is None:
-                engine.stdin.write('quit\n')
+                engine.stdin.write("quit\n")
                 engine.stdin.flush()
                 engine.wait(timeout=5)
         except Exception:
@@ -153,12 +178,12 @@ class EnginePool:
                 engine.wait(timeout=5)
             except Exception:
                 engine.kill()
-                
+
     def shutdown_pool(self):
         """Shutdown all engines in the pool."""
         self.shutdown = True
         logging.info("Shutting down engine pool")
-        
+
         engines_to_cleanup = []
         while not self.available_engines.empty():
             try:
@@ -166,19 +191,21 @@ class EnginePool:
                 engines_to_cleanup.append(engine)
             except queue.Empty:
                 break
-                
+
         for engine in engines_to_cleanup:
             self._cleanup_engine(engine)
+
 
 # Global engine pools
 _nnue_pool = None
 _human_pool = None
 _pool_lock = threading.Lock()
 
+
 def _initialize_nnue_pool():
     """Initialize NNUE engine pool at startup."""
     global _nnue_pool
-    
+
     logging.info("Initializing NNUE engine pool at startup...")
     try:
         _nnue_pool = EnginePool(engine_path_NNUE, pool_size=POOL_SIZE)
@@ -187,10 +214,11 @@ def _initialize_nnue_pool():
         logging.error(f"Failed to initialize NNUE engine pool at startup: {e}")
         _nnue_pool = None
 
+
 def _get_engine_pool(engine_path):
     """Get or create engine pool for the given path."""
     global _nnue_pool, _human_pool
-    
+
     with _pool_lock:
         if engine_path == engine_path_NNUE:
             if _nnue_pool is None:
@@ -206,6 +234,7 @@ def _get_engine_pool(engine_path):
             # For other engine paths, create a temporary pool
             return EnginePool(engine_path, pool_size=8)
 
+
 def _cleanup_pools():
     """Cleanup function called on exit."""
     global _nnue_pool, _human_pool
@@ -214,89 +243,102 @@ def _cleanup_pools():
     if _human_pool:
         _human_pool.shutdown_pool()
 
+
 # Register cleanup function
 atexit.register(_cleanup_pools)
 
 # Initialize NNUE engine pool at startup (HUMAN pool is lazy-loaded)
 _initialize_nnue_pool()
 
+
 def get_pool_stats():
     """Get statistics about the engine pools."""
     stats = {}
     if _nnue_pool:
-        stats['NNUE'] = {
-            'initialized': True,
-            'pool_size': _nnue_pool.pool_size,
-            'available': _nnue_pool.available_engines.qsize(),
-            'busy': _nnue_pool.pool_size - _nnue_pool.available_engines.qsize()
+        stats["NNUE"] = {
+            "initialized": True,
+            "pool_size": _nnue_pool.pool_size,
+            "available": _nnue_pool.available_engines.qsize(),
+            "busy": _nnue_pool.pool_size - _nnue_pool.available_engines.qsize(),
         }
     else:
-        stats['NNUE'] = {'initialized': False, 'reason': 'Failed to initialize at startup'}
-        
+        stats["NNUE"] = {
+            "initialized": False,
+            "reason": "Failed to initialize at startup",
+        }
+
     if _human_pool:
-        stats['HUMAN'] = {
-            'initialized': True,
-            'pool_size': _human_pool.pool_size,
-            'available': _human_pool.available_engines.qsize(),
-            'busy': _human_pool.pool_size - _human_pool.available_engines.qsize()
+        stats["HUMAN"] = {
+            "initialized": True,
+            "pool_size": _human_pool.pool_size,
+            "available": _human_pool.available_engines.qsize(),
+            "busy": _human_pool.pool_size - _human_pool.available_engines.qsize(),
         }
     else:
-        stats['HUMAN'] = {'initialized': False, 'reason': 'Lazy initialization - not yet needed'}
+        stats["HUMAN"] = {
+            "initialized": False,
+            "reason": "Lazy initialization - not yet needed",
+        }
     return stats
+
 
 def call_engine(fen, depth, engine_path=engine_path_NNUE, lines=3):
     """
     Call chess engine for analysis with Redis caching and engine pooling.
-    
+
     Args:
         fen: Chess position in FEN notation
         depth: Analysis depth
         engine_path: Path to chess engine executable
         lines: Number of analysis lines (MultiPV)
-        
+
     Returns:
         Tuple of (bestmoves, ponder)
     """
     # Get cache instance
     cache = get_cache()
-    
+
     # Try to get from cache first
     cached_result = cache.get_cached_analysis(fen, depth, lines)
     if cached_result:
         return cached_result
-    
+
     # Cache miss - compute analysis using engine pool
-    logging.info(f"Computing engine analysis for FEN: {fen}, depth: {depth}, lines: {lines}")
-    
+    logging.info(
+        f"Computing engine analysis for FEN: {fen}, depth: {depth}, lines: {lines}"
+    )
+
     # Get engine from pool
     pool = _get_engine_pool(engine_path)
     engine = pool.get_engine()
-    
+
     if engine is None:
         logging.error("Failed to get engine from pool")
         return [], None
-    
+    elif engine.stdin is None or engine.stdout is None:
+        logging.error("Engine stdin or stdout is None")
+        return [], None
+
     try:
         # Set MultiPV option for this analysis
-        engine.stdin.write(f'setoption name MultiPV value {lines}\n')
+        engine.stdin.write(f"setoption name MultiPV value {lines}\n")
         engine.stdin.flush()
-        engine.stdin.write('isready\n')
+        engine.stdin.write("isready\n")
         engine.stdin.flush()
 
-        
         # Use the unified analysis function
         result = _analyze_position_with_engine(engine, fen, depth, lines)
-        
+
         # Store result in cache
         if result[0]:  # Only cache if we got valid results
             cache.store_analysis(fen, depth, lines, result[0], result[1])
-        
+
         return result
-        
+
     except Exception as e:
         logging.error(f"Error during engine analysis: {e}")
         return [], None
-        
+
     finally:
         # Return engine to pool
         pool.return_engine(engine)
@@ -306,21 +348,21 @@ def analyze_pgn_game(pgn_moves, depth=15, lines=3, engine_path=engine_path_NNUE)
     """
     Analyze a complete PGN game using a dedicated engine instance.
     More efficient for game analysis as the engine can reuse hash table entries.
-    
+
     Args:
         pgn_moves: List of moves in PGN format or PGN string
         depth: Analysis depth for each position
         lines: Number of analysis lines (MultiPV)
         engine_path: Path to chess engine executable
-        
+
     Returns:
         List of analysis results for each position
     """
     import chess.pgn
     import io
-    
+
     logging.info(f"Starting PGN game analysis with depth {depth}, lines {lines}")
-    
+
     # Parse PGN moves
     if isinstance(pgn_moves, str):
         # If it's a PGN string, parse it
@@ -334,49 +376,58 @@ def analyze_pgn_game(pgn_moves, depth=15, lines=3, engine_path=engine_path_NNUE)
         moves = pgn_moves
     else:
         raise ValueError("pgn_moves must be a PGN string or list of moves")
-    
+
     # Create dedicated engine with optimized settings
     engine = None
     try:
         logging.info(f"Creating dedicated engine for PGN analysis: {engine_path}")
-        engine = subprocess.Popen([engine_path],
-                                 stdin=subprocess.PIPE,
-                                 stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE,
-                                 universal_newlines=True)
-        
+        engine = subprocess.Popen(
+            [engine_path],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+
+        if engine.stdin is None or engine.stdout is None:
+            raise RuntimeError("Engine stdin or stdout is None")
+
         # Initialize UCI protocol
-        engine.stdin.write('uci\n')
+        engine.stdin.write("uci\n")
         engine.stdin.flush()
-        
+
         # Set optimized options for game analysis
         # Get the number of available CPUs and divide by pool_size
-        n_threads = os.cpu_count() // POOL_SIZE
-        engine.stdin.write(f'setoption name Threads value {n_threads}\n')
+        n_threads = CPU_COUNT // POOL_SIZE
+        engine.stdin.write(f"setoption name Threads value {n_threads}\n")
         engine.stdin.flush()
-        engine.stdin.write('setoption name Hash value 64\n')
+        engine.stdin.write("setoption name Hash value 64\n")
         engine.stdin.flush()
-        engine.stdin.write(f'setoption name MultiPV value {lines}\n')
+        engine.stdin.write(f"setoption name MultiPV value {lines}\n")
         engine.stdin.flush()
-        
+
         # Send isready and wait for readyok
-        engine.stdin.write('isready\n')
+        engine.stdin.write("isready\n")
         engine.stdin.flush()
-        
+
         # Analyze each position in the game
         board = chess.Board()
         analysis_results = []
         cache = get_cache()
-        
+
         # Analyze starting position
-        starting_analysis = _analyze_position_with_cache_and_engine(cache, engine, board.fen(), depth, lines)
-        analysis_results.append({
-            'move_number': 0,
-            'fen': board.fen(),
-            'move_played': None,
-            'analysis': starting_analysis
-        })
-        
+        starting_analysis = _analyze_position_with_cache_and_engine(
+            cache, engine, board.fen(), depth, lines
+        )
+        analysis_results.append(
+            {
+                "move_number": 0,
+                "fen": board.fen(),
+                "move_played": None,
+                "analysis": starting_analysis,
+            }
+        )
+
         # Analyze each move
         for move_num, move_uci in enumerate(moves, 1):
             try:
@@ -384,36 +435,42 @@ def analyze_pgn_game(pgn_moves, depth=15, lines=3, engine_path=engine_path_NNUE)
                 if move not in board.legal_moves:
                     logging.warning(f"Illegal move {move_uci} at position {move_num}")
                     continue
-                
+
                 board.push(move)
-                
+
                 # Analyze the position after the move
-                analysis = _analyze_position_with_cache_and_engine(cache, engine, board.fen(), depth, lines)
-                
-                analysis_results.append({
-                    'move_number': move_num,
-                    'fen': board.fen(),
-                    'move_played': move_uci,
-                    'analysis': analysis
-                })
-                
+                analysis = _analyze_position_with_cache_and_engine(
+                    cache, engine, board.fen(), depth, lines
+                )
+
+                analysis_results.append(
+                    {
+                        "move_number": move_num,
+                        "fen": board.fen(),
+                        "move_played": move_uci,
+                        "analysis": analysis,
+                    }
+                )
+
                 logging.info(f"Analyzed move {move_num}/{len(moves)}: {move_uci}")
-                
+
             except Exception as e:
                 logging.error(f"Error analyzing move {move_num} ({move_uci}): {e}")
                 continue
-        
-        logging.info(f"PGN analysis complete: {len(analysis_results)} positions analyzed")
+
+        logging.info(
+            f"PGN analysis complete: {len(analysis_results)} positions analyzed"
+        )
         return analysis_results
-        
+
     except Exception as e:
         logging.error(f"Error during PGN analysis: {e}")
         raise
     finally:
         # Cleanup dedicated engine
-        if engine:
+        if engine and engine.poll() is None and engine.stdin:
             try:
-                engine.stdin.write('quit\n')
+                engine.stdin.write("quit\n")
                 engine.stdin.flush()
                 engine.wait(timeout=10)
             except Exception:
@@ -423,17 +480,18 @@ def analyze_pgn_game(pgn_moves, depth=15, lines=3, engine_path=engine_path_NNUE)
                 except Exception:
                     engine.kill()
 
+
 def _analyze_position_with_cache_and_engine(cache, engine, fen, depth, lines):
     """
     Analyze a specific position with cache support and an already initialized engine.
-    
+
     Args:
         cache: Cache instance
         engine: Subprocess engine instance
         fen: Position to analyze
         depth: Analysis depth
         lines: Number of lines (MultiPV)
-        
+
     Returns:
         Tuple of (bestmoves, ponder)
     """
@@ -442,36 +500,37 @@ def _analyze_position_with_cache_and_engine(cache, engine, fen, depth, lines):
     if cached_result:
         logging.info(f"Cache hit for position: {fen[:20]}...")
         return cached_result
-    
+
     # Cache miss - compute analysis with engine
     logging.info(f"Cache miss - analyzing position: {fen[:20]}...")
     result = _analyze_position_with_engine(engine, fen, depth, lines)
-    
+
     # Store result in cache
     if result[0]:  # Only cache if we got valid results
         cache.store_analysis(fen, depth, lines, result[0], result[1])
-    
+
     return result
+
 
 def _analyze_position_with_engine(engine, fen, depth, lines, timeout=10):
     """
     Analyze a specific position with an already initialized engine.
-    
+
     Args:
         engine: Subprocess engine instance
         fen: Position to analyze
         depth: Analysis depth
         lines: Number of lines (MultiPV)
         timeout: analysis timeout (in seconds)
-        
+
     Returns:
         Tuple of (bestmoves, ponder)
     """
     try:
         # Set position
-        engine.stdin.write(f'position fen {fen}\n')
+        engine.stdin.write(f"position fen {fen}\n")
         engine.stdin.flush()
-        engine.stdin.write(f'go depth {depth}\n')
+        engine.stdin.write(f"go depth {depth}\n")
         engine.stdin.flush()
 
         bestmoves = lines * [None]
@@ -483,25 +542,37 @@ def _analyze_position_with_engine(engine, fen, depth, lines, timeout=10):
             # Check for timeout first
             if time.perf_counter() - start_time > timeout:
                 logging.warning("Engine analysis timeout")
-                engine.stdin.write(f'stop\n')
+                engine.stdin.write("stop\n")
                 engine.stdin.flush()
                 break
-            
+
             # Use non-blocking readline
             output = engine.stdout.readline().strip()
-            if isinstance(output, str) and output.startswith(f"info depth") and "multipv" in output:
+            if (
+                isinstance(output, str)
+                and output.startswith("info depth")
+                and "multipv" in output
+            ):
                 parts = output.split()
                 try:
                     mv_idx = parts.index("multipv") + 1
                     pv_idx = parts.index("pv") + 1
-                    
+
                     # Extract the full principal variation
                     pv_moves = []
                     for i in range(pv_idx, len(parts)):
-                        if parts[i] in ['depth', 'seldepth', 'time', 'nodes', 'score', 'multipv', 'wdl']:
+                        if parts[i] in [
+                            "depth",
+                            "seldepth",
+                            "time",
+                            "nodes",
+                            "score",
+                            "multipv",
+                            "wdl",
+                        ]:
                             break
                         pv_moves.append(parts[i])
-                    
+
                     first_move = pv_moves[0] if pv_moves else None
 
                     # Get score
@@ -524,19 +595,19 @@ def _analyze_position_with_engine(engine, fen, depth, lines, timeout=10):
                         w = int(parts[wdl_idx])
                         d = int(parts[wdl_idx + 1])
                         l = int(parts[wdl_idx + 2])
-                        winprob = (w + (d/2))/10
+                        winprob = (w + (d / 2)) / 10
 
                     bestmoves[int(parts[mv_idx]) - 1] = {
-                        'move': first_move,
-                        'pv_moves': pv_moves,
-                        'score': score,
-                        'mate': mate,
-                        'w': w,
-                        'd': d,
-                        'l': l,
-                        'winprob': winprob,
+                        "move": first_move,
+                        "pv_moves": pv_moves,
+                        "score": score,
+                        "mate": mate,
+                        "w": w,
+                        "d": d,
+                        "l": l,
+                        "winprob": winprob,
                     }
-                    
+
                 except Exception as e:
                     logging.error(f"Parse error in position analysis: {e}")
                     continue
@@ -548,9 +619,9 @@ def _analyze_position_with_engine(engine, fen, depth, lines, timeout=10):
                 break
 
         return bestmoves, ponder
-        
+
     except Exception as e:
-        engine.stdin.write(f'stop\n')
+        engine.stdin.write("stop\n")
         engine.stdin.flush()
         logging.error(f"Error analyzing position {fen}: {e}")
         return [], None
@@ -569,6 +640,8 @@ def apply_move_to_fen(fen, move_uci):
 
     board.push(move)
     return board.fen()
+
+
 # Evaluate specific move from a FEN
 def eval_move(fen, move, depth, engine_path):
     try:
@@ -579,29 +652,34 @@ def eval_move(fen, move, depth, engine_path):
         print(f"Error evaluating move {move}: {e}")
         return None
 
+
 # Master function
 def engines(fen, depth):
     bestmovesNNUE, ponderNNUE = call_engine(fen, depth, engine_path_NNUE, lines=3)
     bestmovesHUMAN, ponderHUMAN = call_engine(fen, depth, engine_path_HUMAN, lines=3)
 
-    human_move = bestmovesHUMAN[0]['move']
+    human_move = bestmovesHUMAN[0]["move"]
     nnue_eval_of_human = eval_move(fen, human_move, depth, engine_path_NNUE)
 
-    nnue_move = bestmovesNNUE[0]['move']
+    nnue_move = bestmovesNNUE[0]["move"]
     human_eval_of_nnue = eval_move(fen, nnue_move, depth, engine_path_HUMAN)
 
-    nnue_eval_of_human_ponder = eval_move(fen, ponderHUMAN, depth, engine_path_NNUE) if ponderHUMAN else None
-    human_eval_of_nnue_ponder = eval_move(fen, ponderNNUE, depth, engine_path_HUMAN) if ponderNNUE else None
+    nnue_eval_of_human_ponder = (
+        eval_move(fen, ponderHUMAN, depth, engine_path_NNUE) if ponderHUMAN else None
+    )
+    human_eval_of_nnue_ponder = (
+        eval_move(fen, ponderNNUE, depth, engine_path_HUMAN) if ponderNNUE else None
+    )
 
     return {
-        'NNUE': {
-            'top_moves': bestmovesNNUE,
-            'eval_human_move': nnue_eval_of_human,
-            'eval_human_ponder': nnue_eval_of_human_ponder
+        "NNUE": {
+            "top_moves": bestmovesNNUE,
+            "eval_human_move": nnue_eval_of_human,
+            "eval_human_ponder": nnue_eval_of_human_ponder,
         },
-        'HUMAN': {
-            'top_moves': bestmovesHUMAN,
-            'eval_nnue_move': human_eval_of_nnue,
-            'eval_nnue_ponder': human_eval_of_nnue_ponder
-        }
+        "HUMAN": {
+            "top_moves": bestmovesHUMAN,
+            "eval_nnue_move": human_eval_of_nnue,
+            "eval_nnue_ponder": human_eval_of_nnue_ponder,
+        },
     }
