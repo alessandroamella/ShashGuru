@@ -21,6 +21,15 @@ COPY backend/ .
 # Make all scripts in the executables directory executable
 RUN chmod +x executables/*
 
+# Create a user 'appuser'
+RUN useradd -m appuser
+
+# Change ownership of the app directory
+RUN chown -R appuser:appuser /app
+
+# Switch to this user
+USER appuser
+
 EXPOSE 5000
 
 CMD ["/opt/venv/bin/python", "ShashGuruBackend.py"]
