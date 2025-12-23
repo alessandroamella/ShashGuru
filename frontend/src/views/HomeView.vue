@@ -75,7 +75,7 @@ const evaluationDepth = ref(DEFAULT_DEPTH);
 
 async function pollLiveState() {
 	try {
-		const serverUrl = import.meta.env.BASE_URL + "backend"; // O url corretto
+		const serverUrl = import.meta.env.BASE_URL + "backend";
 		// const serverUrl = 'http://localhost:5000'; // Usa quello che usi di solito
 
 		const res = await fetch(`${serverUrl}/live/state`);
@@ -300,7 +300,7 @@ async function fetchEvaluationForNode(node) {
 
 // Fetch evaluations for all moves in the current line
 async function fetchEvaluationsForMoves() {
-	if (!moveTree.value) return;
+	if (!moveTree.value || isSpectator.value) return;
 
 	isLoadingEvaluations.value = true;
 
@@ -741,13 +741,13 @@ watch(selectedMoveIndex, async () => {
 <template>
   <!-- Modalità spettatore o giocatore (max 1) -->
   <div v-if="isSpectator" class="bg-danger text-white text-center p-2 fw-bold w-100">
-     👀 SPECTATOR MODE: Another user is playing. You are watching live.
+     SPECTATOR MODE: Another user is playing, you are watching live
   </div>
   <div v-else-if="isController" class="bg-success text-white text-center p-2 fw-bold w-100">
-     🎮 YOU ARE PLAYING (Controller)
+     You are playing (controller)
   </div>
   <div v-else class="bg-secondary text-white text-center p-2 fw-bold w-100">
-     Connecting to Live Server...
+     Connecting to live server...
   </div>
   
   <div id="chessboard" class="d-flex flex-column flex-lg-row justify-content-evenly m-2 m-lg-5" >

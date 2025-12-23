@@ -26,6 +26,9 @@ services:
       dockerfile: backend/Dockerfile
     # Remove volumes binding for production so code is baked into the image
     restart: unless-stopped
+    # expose this too
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
     environment:
       - FLASK_ENV=production
       - REDIS_HOST=redis

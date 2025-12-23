@@ -424,20 +424,12 @@ def analysis_styles():
         return jsonify({"error": str(e)}), 500
 
 
-if __name__ == "__main__":
-    # This will only run when called directly (not with gunicorn)
-    logging.basicConfig(level=logging.INFO)
-    load_models()
-    logging.info("Starting development server...")
-    app.run(host="0.0.0.0", port=5000, debug=True)
-
-
-# --- LIVE GAME LOGIC START ---
+# Logica live
 LIVE_KEY_FEN = "live:fen"
 LIVE_KEY_CONTROLLER = "live:controller"
 LIVE_KEY_LAST_UPDATE = "live:last_update"
 LIVE_KEY_CHAT = "live:chat"
-SESSION_TIMEOUT = 30  # Secondi dopo i quali il controllore perde il posto se inattivo
+SESSION_TIMEOUT = 30  # Secondi dopo i quali il controller perde il posto se inattivo
 
 
 @app.route("/live/state", methods=["GET"])
@@ -506,7 +498,7 @@ def claim_controller():
 
 @app.route("/live/update", methods=["POST"])
 def update_live_state():
-    """Il controllore invia aggiornamenti (mossa o chat)."""
+    """Il controller invia aggiornamenti (mossa o chat)."""
     data = request.get_json()
     user_id = data.get("user_id")
     fen = data.get("fen")
@@ -530,4 +522,9 @@ def update_live_state():
     return jsonify({"success": False, "error": "Not authorized"}), 403
 
 
-# --- LIVE GAME LOGIC END ---
+if __name__ == "__main__":
+    # This will only run when called directly (not with gunicorn)
+    logging.basicConfig(level=logging.INFO)
+    load_models()
+    logging.info("Starting development server...")
+    app.run(host="0.0.0.0", port=5000, debug=True)

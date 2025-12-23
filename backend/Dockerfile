@@ -18,6 +18,9 @@ RUN /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ .
 
+# Make all scripts in the executables directory executable
+RUN chmod +x executables/*
+
 EXPOSE 5000
 
 CMD ["/opt/venv/bin/python", "ShashGuruBackend.py"]
