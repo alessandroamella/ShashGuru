@@ -16,8 +16,8 @@ export const EVALUATION_CONSTANTS = {
 
   // Other evaluation-related defaults
   DEFAULT_EVALUATION_ENABLED: true,
-  DEFAULT_SHOW_BEST_MOVE: true
-};
+  DEFAULT_SHOW_BEST_MOVE: true,
+}
 
 // Export individual constants for convenience
 export const {
@@ -28,5 +28,5 @@ export const {
   MIN_SHOW_LINES,
   MAX_SHOW_LINES,
   DEFAULT_EVALUATION_ENABLED,
-  DEFAULT_SHOW_BEST_MOVE
-} = EVALUATION_CONSTANTS;
+  DEFAULT_SHOW_BEST_MOVE,
+} = EVALUATION_CONSTANTS

@@ -2,8 +2,8 @@
 import { onMounted, ref, nextTick, computed } from 'vue'
 import EventSection from '@/components/EventSection.vue'
 
-const eventId = ref('sO7W9Jje')      // Example tournament ID
-const roundId = ref('')              // Set directly or extract from URL
+const eventId = ref('sO7W9Jje') // Example tournament ID
+const roundId = ref('') // Set directly or extract from URL
 const pgnListFeatured = ref([])
 const pgnListAsked = ref([])
 const loading = ref(false)
@@ -47,9 +47,7 @@ async function fetchEvent() {
 
 function splitPGNs(pgnText) {
   //Takes the full PGN list from the Lichess API and splits it into individual games
-  return pgnText
-    .trim()
-    .split(/\n\n(?=\[Event )/) // lookahead for new game start
+  return pgnText.trim().split(/\n\n(?=\[Event )/) // lookahead for new game start
 }
 
 async function fetchQueriedPgn() {
@@ -65,7 +63,6 @@ async function fetchQueriedPgn() {
       if (!searchHasHappened.value) {
         searchHasHappened.value = true
         await nextTick()
-
       }
     }
   }
@@ -81,14 +78,15 @@ async function fetchPgnFeatured() {
 
 function cleanPgnFromComments(pgn) {
   // Remove comments and NAGs from PGN for cleaner display
-  return pgn.replace(/\{[^}]*\}/g, '') // Remove comments {...}
-    .replace(/\$\d+/g, '')  // Remove NAGs like $1, $2, etc.
+  return pgn
+    .replace(/\{[^}]*\}/g, '') // Remove comments {...}
+    .replace(/\$\d+/g, '') // Remove NAGs like $1, $2, etc.
     .trim()
 }
 
 // Fetch PGNs of a specific round
 async function fetchPgn(idToFetch) {
-  let pgnText = '';
+  let pgnText = ''
   loading.value = true
   error.value = null
   try {
@@ -132,57 +130,75 @@ const queriedEventTitle = computed(() => {
 onMounted(() => {
   // Automatically fetch event info on mount
   featuredEvent.value = import.meta.env.FEATURED_EVENT_ID || 'bFcndX91' // Test featured event ID, should be null in production
-  fetchPgnFeatured();
+  fetchPgnFeatured()
   //fetchTopEvents();
 })
-
 </script>
 
 <template>
-
   <div class="p-4 mx-5">
     <div class="container py-4 w-100">
       <h2 class="text-center text-light mb-4 mx">Events and Broadcasts</h2>
 
       <!-- Search Bar -->
-      <div id="search-group" class="input-group rounded-pill  p-1">
-        <input id="input-event" type="text" class="form-control outline-none rounded-pill me-1" v-model="searchInput"
-          @keyup.enter="fetchQueriedPgn" placeholder="Paste Lichess Broadcast URL or Event ID..." />
+      <div id="search-group" class="input-group rounded-pill p-1">
+        <input
+          id="input-event"
+          type="text"
+          class="form-control outline-none rounded-pill me-1"
+          v-model="searchInput"
+          @keyup.enter="fetchQueriedPgn"
+          placeholder="Paste Lichess Broadcast URL or Event ID..."
+        />
 
         <!-- Search Button -->
-        <button id="search-button" class="btn rounded-circle" type="button" @click="fetchQueriedPgn"
-          :disabled="loading">
+        <button
+          id="search-button"
+          class="btn rounded-circle"
+          type="button"
+          @click="fetchQueriedPgn"
+          :disabled="loading"
+        >
           <span class="material-icons mt-1" v-if="!loading">search</span>
           <span v-else class="spinner-border spinner-border-sm"></span>
         </button>
       </div>
 
       <!-- Helper text -->
-      <small id="helper" class="form-text  mt-2 ms-1">
+      <small id="helper" class="form-text mt-2 ms-1">
         Example: https://lichess.org/broadcast/.../sO7W9Jje/eJLgkG7n or eJLgkG7n
       </small>
 
       <!-- Error Message -->
-      <div v-if="error" class="text-danger mt-3">
-        ⚠️ {{ error }}
-      </div>
+      <div v-if="error" class="text-danger mt-3">⚠️ {{ error }}</div>
     </div>
   </div>
 
   <!-- Queried Event -->
 
-  <EventSection v-if="searchHasHappened && roundId && isQueriedVisibile" :title="queriedEventTitle || 'Your Query'"
-    :pgnList="pgnListAsked" :shouldRender="searchHasHappened" :onRefresh="refreshQueriedEvent" initiallyOpen id="queried-results" />
-
+  <EventSection
+    v-if="searchHasHappened && roundId && isQueriedVisibile"
+    :title="queriedEventTitle || 'Your Query'"
+    :pgnList="pgnListAsked"
+    :shouldRender="searchHasHappened"
+    :onRefresh="refreshQueriedEvent"
+    initiallyOpen
+    id="queried-results"
+  />
 
   <div v-if="featuredEvent" class="fs-3 ms-5 m-4">Featured Event</div>
   <!-- Featured Event -->
-  <EventSection v-if="featuredEvent" :title="featuredEventTitle || 'Featured Event'" :pgnList="pgnListFeatured"
-    :shouldRender="isFeatureVisibile" :onRefresh="refreshFeaturedEvent" initiallyOpen />
+  <EventSection
+    v-if="featuredEvent"
+    :title="featuredEventTitle || 'Featured Event'"
+    :pgnList="pgnListFeatured"
+    :shouldRender="isFeatureVisibile"
+    :onRefresh="refreshFeaturedEvent"
+    initiallyOpen
+  />
 
   <footer class="mb-5"></footer>
 </template>
-
 
 <style scoped>
 #search-group,

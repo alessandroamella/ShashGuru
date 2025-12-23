@@ -1,22 +1,41 @@
 <template>
   <div class="evaluation-container">
-    <div class="evaluation-bar-wrapper" :class="{ 'disabled': !enabled, 'loading': loading && enabled }">
-      <div class="evaluation-bar" :class="{ 'flipped': boardOrientation === 'black' }">
+    <div
+      class="evaluation-bar-wrapper"
+      :class="{ disabled: !enabled, loading: loading && enabled }"
+    >
+      <div class="evaluation-bar" :class="{ flipped: boardOrientation === 'black' }">
         <template v-if="enabled">
           <!-- Top section (black when white orientation, white when black orientation) -->
-          <div class="eval-section" :class="boardOrientation !== 'white' ? 'black-section' : 'white-section'"
-            :style="{ height: (boardOrientation !== 'white' ? blackPercentage : whitePercentage) + '%' }">
-            <div v-if="(boardOrientation !== 'white' ? blackPercentage : whitePercentage) > 15" class="eval-text"
-              :class="boardOrientation !== 'white' ? 'black-text' : 'white-text'">
+          <div
+            class="eval-section"
+            :class="boardOrientation !== 'white' ? 'black-section' : 'white-section'"
+            :style="{
+              height: (boardOrientation !== 'white' ? blackPercentage : whitePercentage) + '%',
+            }"
+          >
+            <div
+              v-if="(boardOrientation !== 'white' ? blackPercentage : whitePercentage) > 15"
+              class="eval-text"
+              :class="boardOrientation !== 'white' ? 'black-text' : 'white-text'"
+            >
               {{ formatEvaluation() }}
             </div>
           </div>
 
           <!-- Bottom section (white when white orientation, black when black orientation) -->
-          <div class="eval-section" :class="boardOrientation !== 'white' ? 'white-section' : 'black-section'"
-            :style="{ height: (boardOrientation !== 'white' ? whitePercentage : blackPercentage) + '%' }">
-            <div v-if="(boardOrientation !== 'white' ? whitePercentage : blackPercentage) > 15" class="eval-text"
-              :class="boardOrientation !== 'white' ? 'white-text' : 'black-text'">
+          <div
+            class="eval-section"
+            :class="boardOrientation !== 'white' ? 'white-section' : 'black-section'"
+            :style="{
+              height: (boardOrientation !== 'white' ? whitePercentage : blackPercentage) + '%',
+            }"
+          >
+            <div
+              v-if="(boardOrientation !== 'white' ? whitePercentage : blackPercentage) > 15"
+              class="eval-text"
+              :class="boardOrientation !== 'white' ? 'white-text' : 'black-text'"
+            >
               {{ formatEvaluation() }}
             </div>
           </div>
@@ -56,8 +75,13 @@
 
     <!-- Error display -->
     <div v-if="error && enabled" class="error-container">
-      <i class="material-icons" @mouseover="isErrorTooltipVisible = true" @mouseleave="isErrorTooltipVisible = false"
-        style="color: #ff6b6b;">error</i>
+      <i
+        class="material-icons"
+        @mouseover="isErrorTooltipVisible = true"
+        @mouseleave="isErrorTooltipVisible = false"
+        style="color: #ff6b6b"
+        >error</i
+      >
       <div class="error-tooltip bg-danger">
         {{ error }}
       </div>
@@ -68,35 +92,39 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { EvaluationService } from '@/services/evaluationService.js'
-import { DEFAULT_DEPTH, DEFAULT_EVALUATION_ENABLED, DEFAULT_SHOW_LINES } from '@/constants/evaluation.js'
+import {
+  DEFAULT_DEPTH,
+  DEFAULT_EVALUATION_ENABLED,
+  DEFAULT_SHOW_LINES,
+} from '@/constants/evaluation.js'
 
 const emit = defineEmits(['evaluation-update', 'loading-update'])
 
 const props = defineProps({
   fen: {
     type: String,
-    required: true
+    required: true,
   },
   depth: {
     type: Number,
-    default: DEFAULT_DEPTH
+    default: DEFAULT_DEPTH,
   },
   enabled: {
     type: Boolean,
-    default: DEFAULT_EVALUATION_ENABLED
+    default: DEFAULT_EVALUATION_ENABLED,
   },
   boardOrientation: {
     type: String,
-    default: 'white' // 'white' or 'black'
+    default: 'white', // 'white' or 'black'
   },
   barHeight: {
     type: Number,
-    default: 800
+    default: 800,
   },
   showLines: {
     type: Number,
-    default: DEFAULT_SHOW_LINES
-  }
+    default: DEFAULT_SHOW_LINES,
+  },
 })
 
 const evaluation = ref(null)
@@ -119,11 +147,11 @@ const evaluationPercentage = computed(() => {
   if (loading.value && evaluation.value) {
     return lastValidPercentage.value
   }
-  
+
   if (!evaluation.value) return 50 // Neutral position
-  
+
   let score = 0
-  
+
   if (evaluation.value.mate !== null) {
     // Mate situation - set to extreme values
     let mateValue = evaluation.value.mate
@@ -131,7 +159,7 @@ const evaluationPercentage = computed(() => {
     if (!evaluationSideToMove.value) {
       mateValue = -mateValue
     }
-    
+
     if (mateValue > 0) {
       return 100 // White mate - white advantage
     } else {
@@ -153,12 +181,12 @@ const evaluationPercentage = computed(() => {
     }
     return winProb * 100
   }
-  
+
   // Convert centipawn evaluation to percentage
   // Use a sigmoid-like function to map scores to 0-100 range
   // Score of 0 = 50%, positive scores favor white, negative favor black
   const normalizedScore = Math.max(-1000, Math.min(1000, score))
-  return Math.max(5, Math.min(95, 50 + (normalizedScore / 20))) // Clamp between 5-95% for visibility
+  return Math.max(5, Math.min(95, 50 + normalizedScore / 20)) // Clamp between 5-95% for visibility
 })
 
 // Always show evaluation from White's POV, regardless of board orientation
@@ -175,9 +203,9 @@ const formatEvaluation = () => {
   if (loading.value && evaluation.value) {
     return lastValidEvaluation.value
   }
-  
+
   if (!evaluation.value) return ''
-  
+
   if (evaluation.value.mate !== null) {
     let mateValue = evaluation.value.mate
     // If it was black to move when evaluation was calculated, flip the mate value to show from white's perspective
@@ -196,7 +224,7 @@ const formatEvaluation = () => {
     const sign = scoreInPawns >= 0 ? '+' : ''
     return `${sign}${scoreInPawns.toFixed(1)}`
   }
-  
+
   return ''
 }
 
@@ -209,35 +237,35 @@ const fetchEvaluation = async () => {
       bestMove: null,
       evaluation: null,
       depth: 0,
-      lines: []
+      lines: [],
     })
     emit('loading-update', false)
     return
   }
-  
+
   try {
     loading.value = true
     error.value = null
-    
+
     // Emit loading state
     emit('loading-update', true)
-    
+
     // Store whose turn it is BEFORE making the request
     evaluationSideToMove.value = isWhiteToMove.value
-    
+
     const result = await EvaluationService.fetchEvaluation(props.fen, props.depth, props.showLines)
 
-    if (result.fen === props.fen){
+    if (result.fen === props.fen) {
       console.log('Evaluation:', result)
       evaluation.value = result
-      
+
       // Emit evaluation data
       emit('evaluation-update', {
         fen: result?.fen,
         bestMove: result?.move || null,
         evaluation: result?.score || result?.mate || null,
         depth: props.depth,
-        lines: result?.lines || []
+        lines: result?.lines || [],
       })
     }
   } catch (err) {
@@ -250,7 +278,7 @@ const fetchEvaluation = async () => {
       bestMove: null,
       evaluation: null,
       depth: 0,
-      lines: []
+      lines: [],
     })
   } finally {
     if (evaluation.value?.fen === props.fen) {
@@ -266,16 +294,19 @@ watch(() => props.fen, fetchEvaluation, { immediate: true })
 watch(() => props.depth, fetchEvaluation)
 watch(() => props.enabled, fetchEvaluation)
 watch(() => props.showLines, fetchEvaluation)
-watch(() => props.boardOrientation, () => {
-  // No need to refetch, just update the display
-})
+watch(
+  () => props.boardOrientation,
+  () => {
+    // No need to refetch, just update the display
+  },
+)
 
 // Watch for evaluation changes to update the last valid percentage
 watch([evaluation, loading], ([newEval, isLoading]) => {
   if (newEval && !isLoading) {
     // Update the last valid percentage when we have a new evaluation and we're not loading
     let score = 0
-    
+
     if (newEval.mate !== null) {
       let mateValue = newEval.mate
       if (!evaluationSideToMove.value) {
@@ -290,7 +321,7 @@ watch([evaluation, loading], ([newEval, isLoading]) => {
         score = -score
       }
       const normalizedScore = Math.max(-1000, Math.min(1000, score))
-      lastValidPercentage.value = Math.max(5, Math.min(95, 50 + (normalizedScore / 20)))
+      lastValidPercentage.value = Math.max(5, Math.min(95, 50 + normalizedScore / 20))
       const scoreInPawns = score / 100
       const sign = scoreInPawns >= 0 ? '+' : ''
       lastValidEvaluation.value = `${sign}${scoreInPawns.toFixed(1)}`
@@ -309,8 +340,8 @@ watch([evaluation, loading], ([newEval, isLoading]) => {
 <style scoped>
 /* styles */
 .error-container {
-  position: relative;      /* important */
-  display: inline-block;   /* so hover works neatly around the icon */
+  position: relative; /* important */
+  display: inline-block; /* so hover works neatly around the icon */
 }
 
 .error-tooltip {
@@ -318,7 +349,7 @@ watch([evaluation, loading], ([newEval, isLoading]) => {
   opacity: 0;
   transition: opacity 0.2s ease;
   position: absolute;
-  z-index: 9999;           /* sit above surrounding UI */
+  z-index: 9999; /* sit above surrounding UI */
   bottom: 125%;
   left: 50%;
   transform: translateX(-50%);
@@ -343,7 +374,6 @@ watch([evaluation, loading], ([newEval, isLoading]) => {
   visibility: visible;
   opacity: 1;
 }
-
 
 .evaluation-container {
   display: flex;

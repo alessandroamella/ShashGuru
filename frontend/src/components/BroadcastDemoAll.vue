@@ -1,4 +1,3 @@
-
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 
@@ -17,7 +16,7 @@ async function fetchBroadcasts() {
     broadcasts.value = text
       .trim()
       .split('\n')
-      .map(line => JSON.parse(line))
+      .map((line) => JSON.parse(line))
   } catch (err) {
     console.error('Error fetching broadcasts:', err)
   }

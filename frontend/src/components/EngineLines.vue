@@ -1,18 +1,18 @@
 // frontend/src/components/EngineLines.vue
 <template>
-  <div v-if="lines && lines.length > 0 || loading" class="engine-lines shadow mb-0 pb-0">
+  <div v-if="(lines && lines.length > 0) || loading" class="engine-lines shadow mb-0 pb-0">
     <div class="lines-header rounded-top">
       <span class="header-text fs-6">Engine Analysis</span>
       <span class="depth-badge">Depth {{ depth }}</span>
     </div>
-    
+
     <div class="lines-container rounded-bottom px-0 mb-0">
       <!-- Loading overlay on top of content -->
       <div v-if="loading" class="loading-overlay">
         <div class="spinner"></div>
         <span class="loading-text">Analyzing...</span>
       </div>
-      
+
       <!-- Game Over Status Overlay -->
       <div v-else-if="gameStatus" class="status-overlay" :class="gameStatus.class">
         <i class="material-icons status-icon">{{ gameStatus.icon }}</i>
@@ -20,9 +20,9 @@
       </div>
 
       <!-- Normal Lines -->
-      <div 
+      <div
         v-else
-        v-for="(line, index) in displayLines" 
+        v-for="(line, index) in displayLines"
         :key="index"
         class="engine-line"
         :class="{ 'best-line': index === 0 }"
@@ -34,8 +34,8 @@
           </span>
         </div>
         <div class="line-moves">
-          <span 
-            v-for="(move, moveIndex) in parseMoves(line.moves)" 
+          <span
+            v-for="(move, moveIndex) in parseMoves(line.moves)"
             :key="moveIndex"
             class="line-move"
             :class="{ 'white-move': move.isWhite, 'black-move': !move.isWhite }"
@@ -51,206 +51,206 @@
 </template>
 
 <script setup>
-import { Chess } from "chess.js";
-import { computed } from "vue";
-import { DEFAULT_SHOW_LINES } from "@/constants/evaluation.js";
+import { Chess } from 'chess.js'
+import { computed } from 'vue'
+import { DEFAULT_SHOW_LINES } from '@/constants/evaluation.js'
 
 const props = defineProps({
-	lines: {
-		type: Array,
-		default: () => [],
-	},
-	maxLines: {
-		type: Number,
-		default: DEFAULT_SHOW_LINES,
-	},
-	depth: {
-		type: Number,
-		default: 0,
-	},
-	currentFen: {
-		type: String,
-		default: "",
-	},
-	loading: {
-		type: Boolean,
-		default: false,
-	},
-});
+  lines: {
+    type: Array,
+    default: () => [],
+  },
+  maxLines: {
+    type: Number,
+    default: DEFAULT_SHOW_LINES,
+  },
+  depth: {
+    type: Number,
+    default: 0,
+  },
+  currentFen: {
+    type: String,
+    default: '',
+  },
+  loading: {
+    type: Boolean,
+    default: false,
+  },
+})
 
-const emit = defineEmits(["moveClicked"]);
+const emit = defineEmits(['moveClicked'])
 
 function onMoveClicked(move, line, moveIndex) {
-	emit("moveClicked", move, line, moveIndex);
+  emit('moveClicked', move, line, moveIndex)
 }
 
 // Helper function to determine whose turn it is from FEN
 const isWhiteToMove = computed(() => {
-	if (!props.currentFen) return true;
-	const fenParts = props.currentFen.split(" ");
-	return fenParts[1] === "w";
-});
+  if (!props.currentFen) return true
+  const fenParts = props.currentFen.split(' ')
+  return fenParts[1] === 'w'
+})
 
 // Display only the requested number of lines
 const displayLines = computed(() => {
-	if (!props.lines) return [];
-	return props.lines.slice(0, props.maxLines);
-});
+  if (!props.lines) return []
+  return props.lines.slice(0, props.maxLines)
+})
 
 // Detect Game Over states based on specific values sent by the backend
 const gameStatus = computed(() => {
-	if (!props.lines || props.lines.length === 0) return null;
+  if (!props.lines || props.lines.length === 0) return null
 
-	const firstLine = props.lines[0];
-	const evalScore = firstLine.evaluation;
+  const firstLine = props.lines[0]
+  const evalScore = firstLine.evaluation
 
-	// Backend sends -32000 for mated (Checkmate)
-	// We use a threshold of 30000 to be safe
-	if (Math.abs(evalScore) >= 30000) {
-		return {
-			text: "Checkmate",
-			icon: "flag",
-			class: "status-checkmate",
-		};
-	}
+  // Backend sends -32000 for mated (Checkmate)
+  // We use a threshold of 30000 to be safe
+  if (Math.abs(evalScore) >= 30000) {
+    return {
+      text: 'Checkmate',
+      icon: 'flag',
+      class: 'status-checkmate',
+    }
+  }
 
-	// Backend sends score 0 and NO MOVES for Stalemate/Draw
-	// The 'moves' string will be empty or null
-	if (evalScore === 0 && (!firstLine.moves || firstLine.moves.trim() === "")) {
-		return {
-			text: "Stalemate / Draw",
-			icon: "handshake",
-			class: "status-draw",
-		};
-	}
+  // Backend sends score 0 and NO MOVES for Stalemate/Draw
+  // The 'moves' string will be empty or null
+  if (evalScore === 0 && (!firstLine.moves || firstLine.moves.trim() === '')) {
+    return {
+      text: 'Stalemate / Draw',
+      icon: 'handshake',
+      class: 'status-draw',
+    }
+  }
 
-	return null;
-});
+  return null
+})
 
 // Parse moves from the engine line format and convert UCI to SAN
 function parseMoves(movesString) {
-	if (!movesString || !props.currentFen) return [];
+  if (!movesString || !props.currentFen) return []
 
-	// Split moves and clean them
-	const uciMoves = movesString.trim().split(/\s+/);
-	const parsedMoves = [];
+  // Split moves and clean them
+  const uciMoves = movesString.trim().split(/\s+/)
+  const parsedMoves = []
 
-	// Create a chess instance starting from current position
-	const chess = new Chess(props.currentFen);
+  // Create a chess instance starting from current position
+  const chess = new Chess(props.currentFen)
 
-	// Determine starting move number from current FEN
-	const fenParts = props.currentFen.split(" ");
-	const isWhiteToMove = fenParts[1] === "w";
-	const fullMoveNumber = parseInt(fenParts[5]) || 1;
+  // Determine starting move number from current FEN
+  const fenParts = props.currentFen.split(' ')
+  const isWhiteToMove = fenParts[1] === 'w'
+  const fullMoveNumber = parseInt(fenParts[5]) || 1
 
-	let currentMoveNumber = fullMoveNumber;
-	let isCurrentlyWhite = isWhiteToMove;
+  let currentMoveNumber = fullMoveNumber
+  let isCurrentlyWhite = isWhiteToMove
 
-	uciMoves.forEach((uciMove, index) => {
-		// Skip move numbers that might be in the string
-		if (uciMove.match(/^\d+\.+$/)) return;
+  uciMoves.forEach((uciMove, index) => {
+    // Skip move numbers that might be in the string
+    if (uciMove.match(/^\d+\.+$/)) return
 
-		// Clean move notation
-		const cleanUciMove = uciMove.replace(/^\d+\.+/, "");
-		if (!cleanUciMove) return;
+    // Clean move notation
+    const cleanUciMove = uciMove.replace(/^\d+\.+/, '')
+    if (!cleanUciMove) return
 
-		try {
-			// Convert UCI to SAN using chess.js
-			const move = chess.move(cleanUciMove);
-			if (move) {
-				parsedMoves.push({
-					san: move.san,
-					uci: cleanUciMove,
-					isWhite: isCurrentlyWhite,
-					moveNumber: isCurrentlyWhite ? currentMoveNumber : null,
-				});
+    try {
+      // Convert UCI to SAN using chess.js
+      const move = chess.move(cleanUciMove)
+      if (move) {
+        parsedMoves.push({
+          san: move.san,
+          uci: cleanUciMove,
+          isWhite: isCurrentlyWhite,
+          moveNumber: isCurrentlyWhite ? currentMoveNumber : null,
+        })
 
-				// Update move tracking
-				if (isCurrentlyWhite) {
-					isCurrentlyWhite = false;
-				} else {
-					isCurrentlyWhite = true;
-					currentMoveNumber++;
-				}
-			}
-		} catch (error) {
-			console.warn(`Failed to parse UCI move: ${cleanUciMove}`, error);
-			// If parsing fails, still show the original move
-			parsedMoves.push({
-				san: cleanUciMove,
-				uci: cleanUciMove,
-				isWhite: isCurrentlyWhite,
-				moveNumber: isCurrentlyWhite ? currentMoveNumber : null,
-			});
+        // Update move tracking
+        if (isCurrentlyWhite) {
+          isCurrentlyWhite = false
+        } else {
+          isCurrentlyWhite = true
+          currentMoveNumber++
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to parse UCI move: ${cleanUciMove}`, error)
+      // If parsing fails, still show the original move
+      parsedMoves.push({
+        san: cleanUciMove,
+        uci: cleanUciMove,
+        isWhite: isCurrentlyWhite,
+        moveNumber: isCurrentlyWhite ? currentMoveNumber : null,
+      })
 
-			// Update move tracking
-			if (isCurrentlyWhite) {
-				isCurrentlyWhite = false;
-			} else {
-				isCurrentlyWhite = true;
-				currentMoveNumber++;
-			}
-		}
-	});
+      // Update move tracking
+      if (isCurrentlyWhite) {
+        isCurrentlyWhite = false
+      } else {
+        isCurrentlyWhite = true
+        currentMoveNumber++
+      }
+    }
+  })
 
-	// Limit to first 6 moves for display
-	return parsedMoves.slice(0, 6);
+  // Limit to first 6 moves for display
+  return parsedMoves.slice(0, 6)
 }
 
 // Format evaluation score considering side to move
 function formatEvaluation(evaluation) {
-	if (evaluation === null || evaluation === undefined) return "0.0";
+  if (evaluation === null || evaluation === undefined) return '0.0'
 
-	// Determine if we need to flip the evaluation based on whose turn it was
-	// The evaluation is always from the perspective of the side to move
-	// We want to show it from White's perspective consistently
-	let adjustedEvaluation = evaluation;
-	if (!isWhiteToMove.value) {
-		// If it was black to move, flip the evaluation to show from white's perspective
-		adjustedEvaluation = -evaluation;
-	}
+  // Determine if we need to flip the evaluation based on whose turn it was
+  // The evaluation is always from the perspective of the side to move
+  // We want to show it from White's perspective consistently
+  let adjustedEvaluation = evaluation
+  if (!isWhiteToMove.value) {
+    // If it was black to move, flip the evaluation to show from white's perspective
+    adjustedEvaluation = -evaluation
+  }
 
-	if (Math.abs(adjustedEvaluation) > 900) {
-		// Mate in N moves
-		const mateIn = Math.abs(adjustedEvaluation) - 1000;
-		const sign = adjustedEvaluation > 0 ? "+" : "";
-		return `M${sign}${adjustedEvaluation > 0 ? mateIn : -mateIn}`;
-	}
+  if (Math.abs(adjustedEvaluation) > 900) {
+    // Mate in N moves
+    const mateIn = Math.abs(adjustedEvaluation) - 1000
+    const sign = adjustedEvaluation > 0 ? '+' : ''
+    return `M${sign}${adjustedEvaluation > 0 ? mateIn : -mateIn}`
+  }
 
-	// Regular evaluation in centipawns, convert to pawns
-	const pawns = adjustedEvaluation / 100;
-	const sign = pawns >= 0 ? "+" : "";
-	return `${sign}${pawns.toFixed(1)}`;
+  // Regular evaluation in centipawns, convert to pawns
+  const pawns = adjustedEvaluation / 100
+  const sign = pawns >= 0 ? '+' : ''
+  return `${sign}${pawns.toFixed(1)}`
 }
 
 // Get CSS class for evaluation color considering side to move
 function getEvaluationClass(evaluation) {
-	if (evaluation === null || evaluation === undefined) return "neutral";
+  if (evaluation === null || evaluation === undefined) return 'neutral'
 
-	// Adjust evaluation based on whose turn it was (same logic as formatEvaluation)
-	let adjustedEvaluation = evaluation;
-	if (!isWhiteToMove.value) {
-		adjustedEvaluation = -evaluation;
-	}
+  // Adjust evaluation based on whose turn it was (same logic as formatEvaluation)
+  let adjustedEvaluation = evaluation
+  if (!isWhiteToMove.value) {
+    adjustedEvaluation = -evaluation
+  }
 
-	if (Math.abs(adjustedEvaluation) > 900) {
-		// Mate
-		return adjustedEvaluation > 0 ? "white-winning" : "black-winning";
-	}
+  if (Math.abs(adjustedEvaluation) > 900) {
+    // Mate
+    return adjustedEvaluation > 0 ? 'white-winning' : 'black-winning'
+  }
 
-	if (adjustedEvaluation > 100) return "white-better";
-	if (adjustedEvaluation > 50) return "white-slightly-better";
-	if (adjustedEvaluation < -100) return "black-better";
-	if (adjustedEvaluation < -50) return "black-slightly-better";
+  if (adjustedEvaluation > 100) return 'white-better'
+  if (adjustedEvaluation > 50) return 'white-slightly-better'
+  if (adjustedEvaluation < -100) return 'black-better'
+  if (adjustedEvaluation < -50) return 'black-slightly-better'
 
-	return "neutral";
+  return 'neutral'
 }
 </script>
 
 <style scoped>
 .engine-lines {
   /*background: rgba(42, 42, 42, 0.95);*/
-  
+
   overflow: hidden;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -337,8 +337,14 @@ function getEvaluationClass(evaluation) {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .spinner {
@@ -357,8 +363,12 @@ function getEvaluationClass(evaluation) {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .engine-line {
@@ -475,11 +485,11 @@ function getEvaluationClass(evaluation) {
   .line-evaluation {
     width: 60px;
   }
-  
+
   .line-moves {
     padding-left: 4px;
   }
-  
+
   .line-move {
     font-size: 0.8rem;
     padding: 1px 4px;

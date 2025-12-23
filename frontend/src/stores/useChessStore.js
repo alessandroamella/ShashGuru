@@ -1,4 +1,4 @@
-    // stores/useChessStore.js
+// stores/useChessStore.js
 import { defineStore } from 'pinia'
 
 export const useChessStore = defineStore('chess', {

@@ -1,5 +1,5 @@
 <script setup>
-import 'material-icons/iconfont/material-icons.css';
+import 'material-icons/iconfont/material-icons.css'
 import { RouterLink, RouterView } from 'vue-router'
 </script>
 
@@ -7,7 +7,7 @@ import { RouterLink, RouterView } from 'vue-router'
   <header>
     <nav class="navbar navbar-expand-lg p-auto px-4 pt-1 pb-0 border-bottom w-auto">
       <div class="container d-flex justify-content-start mx-0 flex-nowrap">
-      <RouterLink id="logo" to="/" class="navbar-brand white fs-1"><h1>ShashGuru</h1></RouterLink>
+        <RouterLink id="logo" to="/" class="navbar-brand white fs-1"><h1>ShashGuru</h1></RouterLink>
         <div class="navbar-nav ms-5 d-flex flex-row">
           <RouterLink to="/" class="nav-link mx-3"><span class="fs-4">HOME</span></RouterLink>
           <RouterLink to="/live" class="nav-link mx-3"><span class="fs-4">LIVE</span></RouterLink>
@@ -35,7 +35,7 @@ a {
 
 /* Cool animated underline */
 a:not(#logo)::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   bottom: 0.2em;
@@ -62,13 +62,13 @@ a:not(#logo):focus {
 }
 
 /* Active router link */
-.router-link-active:not(#logo){
+.router-link-active:not(#logo) {
   color: #cdd26a;
   font-weight: bolder;
 }
 .router-link-active:not(#logo)::after {
   transform: scaleX(1);
-  transform-origin: left; 
+  transform-origin: left;
 }
 
 #logo {

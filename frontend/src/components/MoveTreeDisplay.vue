@@ -1,56 +1,78 @@
 <template>
   <div class="move-tree-display">
-    
-
     <!-- Display moves in traditional chess notation format with inline variations -->
     <div v-if="props.node" class="moves-container">
-      <div v-for="(moveItem, index) in displayItems" :key="moveItem.id || index" 
-           :class="['move-item', { 'variation-item': moveItem.isVariation }]">
-        
+      <div
+        v-for="(moveItem, index) in displayItems"
+        :key="moveItem.id || index"
+        :class="['move-item', { 'variation-item': moveItem.isVariation }]"
+      >
         <!-- Main move row -->
         <div v-if="moveItem.type === 'move-pair'" class="move-row">
           <!-- Move number -->
           <span class="move-number">{{ moveItem.moveNumber }}.</span>
-          
+
           <!-- White move -->
-          <span 
+          <span
             v-if="moveItem.whiteMove"
             class="move-text white-move"
-            :class="{ 
+            :class="{
               'current-move': isSelectedMove(moveItem.whiteMove),
               'main-line': isMainLineMove(moveItem.whiteMove),
-              'variation': !isMainLineMove(moveItem.whiteMove)
+              variation: !isMainLineMove(moveItem.whiteMove),
             }"
             @click="$emit('nodeClicked', moveItem.whiteMove)"
             @contextmenu.prevent="showContextMenu($event, moveItem.whiteMove)"
           >
-            <span class="move-icon" v-if="getShashinIcon(moveItem.whiteMove) || getMoveEvaluationIcon(moveItem.whiteMove)">
-              <span v-if="getShashinIcon(moveItem.whiteMove)" class="shashin-part">{{ getShashinIcon(moveItem.whiteMove) }}</span>
-              <span v-if="getMoveEvaluationIcon(moveItem.whiteMove)" class="evaluation-part">{{ getMoveEvaluationIcon(moveItem.whiteMove) }}</span>
-              <span v-if="!moveItem.whiteMove.shashinType && moveItem.whiteMove.evaluation" 
-                    class="auto-indicator" title="Auto-detected from evaluation">•</span>
+            <span
+              class="move-icon"
+              v-if="getShashinIcon(moveItem.whiteMove) || getMoveEvaluationIcon(moveItem.whiteMove)"
+            >
+              <span v-if="getShashinIcon(moveItem.whiteMove)" class="shashin-part">{{
+                getShashinIcon(moveItem.whiteMove)
+              }}</span>
+              <span v-if="getMoveEvaluationIcon(moveItem.whiteMove)" class="evaluation-part">{{
+                getMoveEvaluationIcon(moveItem.whiteMove)
+              }}</span>
+              <span
+                v-if="!moveItem.whiteMove.shashinType && moveItem.whiteMove.evaluation"
+                class="auto-indicator"
+                title="Auto-detected from evaluation"
+                >•</span
+              >
             </span>
             {{ moveItem.whiteMove.move }}
           </span>
           <span v-else class="move-text empty">...</span>
-          
+
           <!-- Black move -->
-          <span 
+          <span
             v-if="moveItem.blackMove"
             class="move-text black-move"
-            :class="{ 
+            :class="{
               'current-move': isSelectedMove(moveItem.blackMove),
               'main-line': isMainLineMove(moveItem.blackMove),
-              'variation': !isMainLineMove(moveItem.blackMove)
+              variation: !isMainLineMove(moveItem.blackMove),
             }"
             @click="$emit('nodeClicked', moveItem.blackMove)"
             @contextmenu.prevent="showContextMenu($event, moveItem.blackMove)"
           >
-            <span class="move-icon" v-if="getShashinIcon(moveItem.blackMove) || getMoveEvaluationIcon(moveItem.blackMove)">
-              <span v-if="getShashinIcon(moveItem.blackMove)" class="shashin-part">{{ getShashinIcon(moveItem.blackMove) }}</span>
-              <span v-if="getMoveEvaluationIcon(moveItem.blackMove)" class="evaluation-part">{{ getMoveEvaluationIcon(moveItem.blackMove) }}</span>
-              <span v-if="!moveItem.blackMove.shashinType && moveItem.blackMove.evaluation" 
-                    class="auto-indicator" title="Auto-detected from evaluation">•</span>
+            <span
+              class="move-icon"
+              v-if="getShashinIcon(moveItem.blackMove) || getMoveEvaluationIcon(moveItem.blackMove)"
+            >
+              <span v-if="getShashinIcon(moveItem.blackMove)" class="shashin-part">{{
+                getShashinIcon(moveItem.blackMove)
+              }}</span>
+              <span v-if="getMoveEvaluationIcon(moveItem.blackMove)" class="evaluation-part">{{
+                getMoveEvaluationIcon(moveItem.blackMove)
+              }}</span>
+              <span
+                v-if="!moveItem.blackMove.shashinType && moveItem.blackMove.evaluation"
+                class="auto-indicator"
+                title="Auto-detected from evaluation"
+                >•</span
+              >
             </span>
             {{ moveItem.blackMove.move }}
           </span>
@@ -61,7 +83,7 @@
         <div v-else-if="moveItem.type === 'variation'" class="variation-item">
           <div class="variation-line">
             <!-- <span class="variation-marker">(</span> -->
-            <MoveTreeDisplay 
+            <MoveTreeDisplay
               :node="moveItem.variation"
               :currentNode="currentNode"
               :selectedPath="selectedPath"
@@ -83,8 +105,8 @@
     <!-- Analysis input for adding moves -->
     <div v-if="isCurrentNodeInTree && isAnalysisMode" class="analysis-input mt-2">
       <div class="input-group input-group-sm">
-        <input 
-          v-model="newMove" 
+        <input
+          v-model="newMove"
           @keyup.enter="handleAddMove"
           @keyup.esc="newMove = ''"
           class="form-control form-control-sm"
@@ -92,21 +114,21 @@
           ref="moveInput"
         />
         <button class="btn btn-outline-success btn-sm" @click="handleAddMove">
-          <i class="material-icons" style="font-size: 16px;">add</i>
+          <i class="material-icons" style="font-size: 16px">add</i>
         </button>
       </div>
     </div>
 
     <!-- Context Menu -->
-    <div 
-      v-if="showMenu" 
+    <div
+      v-if="showMenu"
       ref="contextMenu"
       class="context-menu"
       :style="{ top: menuPosition.y + 'px', left: menuPosition.x + 'px' }"
       @click.stop
     >
       <div class="context-menu-header">Move Annotations</div>
-      
+
       <!-- Promotion section (only show for variations) -->
       <div v-if="canPromoteToMainLine" class="context-menu-section">
         <div class="context-menu-item promotion-item" @click="promoteToMainLine">
@@ -120,11 +142,13 @@
           <span class="delete-icon">🗑️</span> Delete Move
         </div>
       </div>
-      
+
       <!-- Move Evaluation section -->
       <div class="context-menu-section">
         <div class="context-menu-section-title" @click="toggleSection('moveEvaluation')">
-          <span class="section-toggle-icon" :class="{ 'expanded': !sectionCollapsed.moveEvaluation }">▶</span>
+          <span class="section-toggle-icon" :class="{ expanded: !sectionCollapsed.moveEvaluation }"
+            >▶</span
+          >
           Move Evaluation
         </div>
         <div v-show="!sectionCollapsed.moveEvaluation" class="section-content">
@@ -167,73 +191,100 @@
       <!-- Shashin Position Type section -->
       <div class="context-menu-section">
         <div class="context-menu-section-title" @click="toggleSection('shashinType')">
-          <span class="section-toggle-icon" :class="{ 'expanded': !sectionCollapsed.shashinType }">▶</span>
+          <span class="section-toggle-icon" :class="{ expanded: !sectionCollapsed.shashinType }"
+            >▶</span
+          >
           Shashin Position Type
         </div>
         <div v-show="!sectionCollapsed.shashinType" class="section-content">
-        
-        <!-- Tal (Attack) positions -->
-        <div class="context-menu-subsection">
-          <div class="context-menu-subsection-title">Tal (Attack)</div>
-          <div class="context-menu-item" @click="setShashinType('high-tal')">
-            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-tal' }) }}</span> High Tal
+          <!-- Tal (Attack) positions -->
+          <div class="context-menu-subsection">
+            <div class="context-menu-subsection-title">Tal (Attack)</div>
+            <div class="context-menu-item" @click="setShashinType('high-tal')">
+              <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-tal' }) }}</span>
+              High Tal
+            </div>
+            <div class="context-menu-item" @click="setShashinType('high-middle-tal')">
+              <span class="shashin-icon">{{
+                getShashinIcon({ shashinType: 'high-middle-tal' })
+              }}</span>
+              High-Middle Tal
+            </div>
+            <div class="context-menu-item" @click="setShashinType('middle-tal')">
+              <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-tal' }) }}</span>
+              Middle Tal
+            </div>
+            <div class="context-menu-item" @click="setShashinType('middle-low-tal')">
+              <span class="shashin-icon">{{
+                getShashinIcon({ shashinType: 'middle-low-tal' })
+              }}</span>
+              Middle-Low Tal
+            </div>
+            <div class="context-menu-item" @click="setShashinType('low-tal')">
+              <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'low-tal' }) }}</span> Low
+              Tal
+            </div>
           </div>
-          <div class="context-menu-item" @click="setShashinType('high-middle-tal')">
-            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-middle-tal' }) }}</span> High-Middle Tal
-          </div>
-          <div class="context-menu-item" @click="setShashinType('middle-tal')">
-            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-tal' }) }}</span> Middle Tal
-          </div>
-          <div class="context-menu-item" @click="setShashinType('middle-low-tal')">
-            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-low-tal' }) }}</span> Middle-Low Tal
-          </div>
-          <div class="context-menu-item" @click="setShashinType('low-tal')">
-            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'low-tal' }) }}</span> Low Tal
-          </div>
-        </div>
 
-        <!-- Capablanca (Strategic) positions -->
-        <div class="context-menu-subsection">
-          <div class="context-menu-subsection-title">Capablanca (Strategic)</div>
-          <div class="context-menu-item" @click="setShashinType('capablanca')">
-            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'capablanca' }) }}</span> Capablanca
+          <!-- Capablanca (Strategic) positions -->
+          <div class="context-menu-subsection">
+            <div class="context-menu-subsection-title">Capablanca (Strategic)</div>
+            <div class="context-menu-item" @click="setShashinType('capablanca')">
+              <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'capablanca' }) }}</span>
+              Capablanca
+            </div>
           </div>
-        </div>
 
-        <!-- Petrosian (Defense) positions -->
-        <div class="context-menu-subsection">
-          <div class="context-menu-subsection-title">Petrosian (Defense)</div>
-          <div class="context-menu-item" @click="setShashinType('high-petrosian')">
-            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-petrosian' }) }}</span> High Petrosian
+          <!-- Petrosian (Defense) positions -->
+          <div class="context-menu-subsection">
+            <div class="context-menu-subsection-title">Petrosian (Defense)</div>
+            <div class="context-menu-item" @click="setShashinType('high-petrosian')">
+              <span class="shashin-icon">{{
+                getShashinIcon({ shashinType: 'high-petrosian' })
+              }}</span>
+              High Petrosian
+            </div>
+            <div class="context-menu-item" @click="setShashinType('high-middle-petrosian')">
+              <span class="shashin-icon">{{
+                getShashinIcon({ shashinType: 'high-middle-petrosian' })
+              }}</span>
+              High-Middle Petrosian
+            </div>
+            <div class="context-menu-item" @click="setShashinType('middle-petrosian')">
+              <span class="shashin-icon">{{
+                getShashinIcon({ shashinType: 'middle-petrosian' })
+              }}</span>
+              Middle Petrosian
+            </div>
+            <div class="context-menu-item" @click="setShashinType('middle-low-petrosian')">
+              <span class="shashin-icon">{{
+                getShashinIcon({ shashinType: 'middle-low-petrosian' })
+              }}</span>
+              Middle-Low Petrosian
+            </div>
+            <div class="context-menu-item" @click="setShashinType('low-petrosian')">
+              <span class="shashin-icon">{{
+                getShashinIcon({ shashinType: 'low-petrosian' })
+              }}</span>
+              Low Petrosian
+            </div>
           </div>
-          <div class="context-menu-item" @click="setShashinType('high-middle-petrosian')">
-            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'high-middle-petrosian' }) }}</span> High-Middle Petrosian
-          </div>
-          <div class="context-menu-item" @click="setShashinType('middle-petrosian')">
-            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-petrosian' }) }}</span> Middle Petrosian
-          </div>
-          <div class="context-menu-item" @click="setShashinType('middle-low-petrosian')">
-            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'middle-low-petrosian' }) }}</span> Middle-Low Petrosian
-          </div>
-          <div class="context-menu-item" @click="setShashinType('low-petrosian')">
-            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'low-petrosian' }) }}</span> Low Petrosian
-          </div>
-        </div>
 
-        <!-- Chaos positions -->
-        <div class="context-menu-subsection">
-          <div class="context-menu-subsection-title">Chaos</div>
-          <div class="context-menu-item" @click="setShashinType('chaos-all')">
-            <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'chaos-all' }) }}</span> Total Chaos
+          <!-- Chaos positions -->
+          <div class="context-menu-subsection">
+            <div class="context-menu-subsection-title">Chaos</div>
+            <div class="context-menu-item" @click="setShashinType('chaos-all')">
+              <span class="shashin-icon">{{ getShashinIcon({ shashinType: 'chaos-all' }) }}</span>
+              Total Chaos
+            </div>
           </div>
-        </div>
 
-        <!-- Clear option -->
-        <div class="context-menu-subsection">
-          <div class="context-menu-item" @click="setShashinType(null)">
-            <span class="shashin-icon">❌</span> Clear Shashin Type
+          <!-- Clear option -->
+          <div class="context-menu-subsection">
+            <div class="context-menu-item" @click="setShashinType(null)">
+              <span class="shashin-icon">❌</span> Clear Shashin Type
+            </div>
           </div>
-        </div>
         </div>
       </div>
     </div>
@@ -241,29 +292,29 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue';
-import EngineLines from './EngineLines.vue';
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
+import EngineLines from './EngineLines.vue'
 
 const props = defineProps({
   node: {
     type: Object,
-    required: true
+    required: true,
   },
   currentNode: {
     type: Object,
-    required: true
+    required: true,
   },
   selectedPath: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   level: {
     type: Number,
-    default: 0
+    default: 0,
   },
   isAnalysisMode: {
     type: Boolean,
-    default: false
+    default: false,
   },
   engineEvaluation: {
     type: Object,
@@ -271,129 +322,136 @@ const props = defineProps({
       bestMove: null,
       evaluation: null,
       depth: 0,
-      lines: []
-    })
+      lines: [],
+    }),
   },
   isEvaluationLoading: {
     type: Boolean,
-    default: false
-  }
-});
+    default: false,
+  },
+})
 
-const emit = defineEmits(['nodeClicked', 'addMove', 'setShashinType', 'setMoveEvaluation', 'promoteVariation', 'deleteMove']);
+const emit = defineEmits([
+  'nodeClicked',
+  'addMove',
+  'setShashinType',
+  'setMoveEvaluation',
+  'promoteVariation',
+  'deleteMove',
+])
 
-const newMove = ref('');
-const moveInput = ref(null);
-const showMenu = ref(false);
-const menuPosition = ref({ x: 0, y: 0 });
-const selectedNode = ref(null);
-const contextMenu = ref(null);
+const newMove = ref('')
+const moveInput = ref(null)
+const showMenu = ref(false)
+const menuPosition = ref({ x: 0, y: 0 })
+const selectedNode = ref(null)
+const contextMenu = ref(null)
 
 // Section collapse states
 const sectionCollapsed = ref({
   moveEvaluation: true,
-  shashinType: true
-});
+  shashinType: true,
+})
 
 // Create display items that include both moves and variations in proper order
 const displayItems = computed(() => {
-  if (!props.node) return [];
-  
-  const items = [];
-  const startingMoveIndex = calculateStartingMoveIndex(props.node);
-  buildDisplayItems(props.node, items, startingMoveIndex);
-  return items;
-});
+  if (!props.node) return []
+
+  const items = []
+  const startingMoveIndex = calculateStartingMoveIndex(props.node)
+  buildDisplayItems(props.node, items, startingMoveIndex)
+  return items
+})
 
 // Check if current node is in this tree
 const isCurrentNodeInTree = computed(() => {
-  if (!props.currentNode || !props.node) return false;
-  return isNodeInTree(props.currentNode, props.node);
-});
+  if (!props.currentNode || !props.node) return false
+  return isNodeInTree(props.currentNode, props.node)
+})
 
 function calculateStartingMoveIndex(node) {
   // If this is the root node or has no parent, start from 0
-  if (!node || !node.parent) return 0;
-  
+  if (!node || !node.parent) return 0
+
   // Use the FEN string to determine whose turn it is
   // FEN format: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
   // The active color is the second field (w = white, b = black)
-  const parentFen = node.parent.fen;
-  if (!parentFen) return 0;
-  
-  const fenParts = parentFen.split(' ');
-  if (fenParts.length < 6) return 0;
-  
-  const activeColor = fenParts[1]; // 'w' for white, 'b' for black
-  const fullMoveNumber = parseInt(fenParts[5]) || 1;
-  
+  const parentFen = node.parent.fen
+  if (!parentFen) return 0
+
+  const fenParts = parentFen.split(' ')
+  if (fenParts.length < 6) return 0
+
+  const activeColor = fenParts[1] // 'w' for white, 'b' for black
+  const fullMoveNumber = parseInt(fenParts[5]) || 1
+
   // Calculate the move index based on the position
   // White's first move is index 0, black's first move is index 1, etc.
   if (activeColor === 'w') {
-    return (fullMoveNumber - 1) * 2;
+    return (fullMoveNumber - 1) * 2
   } else {
-    return (fullMoveNumber - 1) * 2 + 1;
+    return (fullMoveNumber - 1) * 2 + 1
   }
 }
 
 function buildDisplayItems(startNode, items, moveIndex) {
-  let current = startNode;
-  let currentMoveIndex = moveIndex;
-  
+  let current = startNode
+  let currentMoveIndex = moveIndex
+
   // Skip the root node if it has no move but has children
   if (!current.move && current.mainLine) {
-    current = current.mainLine;
+    current = current.mainLine
   } else if (!current.move && current.children.length > 0) {
     // Root node with no move but has children - start with first child
-    current = current.children[0];
+    current = current.children[0]
   }
-  
+
   while (current && current.move) {
-    const isWhiteMove = currentMoveIndex % 2 === 0;
-    const moveNumber = Math.floor(currentMoveIndex / 2) + 1;
-    
+    const isWhiteMove = currentMoveIndex % 2 === 0
+    const moveNumber = Math.floor(currentMoveIndex / 2) + 1
+
     if (isWhiteMove) {
       // Start a new move pair with white move
-      const blackMove = current.mainLine;
+      const blackMove = current.mainLine
       const movePair = {
         type: 'move-pair',
         id: `pair-${moveNumber}`,
         moveNumber,
         whiteMove: current,
-        blackMove: blackMove
-      };
-      items.push(movePair);
-      
+        blackMove: blackMove,
+      }
+      items.push(movePair)
+
       // Add variations for white move
-      const whiteVariations = current.children.filter(child => child !== current.mainLine);
-      whiteVariations.forEach(variation => {
+      const whiteVariations = current.children.filter((child) => child !== current.mainLine)
+      whiteVariations.forEach((variation) => {
         items.push({
           type: 'variation',
           id: `var-${variation.id}`,
           variation: variation,
-          isVariation: true
-        });
-      });
-      
+          isVariation: true,
+        })
+      })
+
       // Add variations for black move if it exists
       if (blackMove) {
-        const blackVariations = blackMove.children.filter(child => child !== blackMove.mainLine);
-        blackVariations.forEach(variation => {
+        const blackVariations = blackMove.children.filter((child) => child !== blackMove.mainLine)
+        blackVariations.forEach((variation) => {
           items.push({
             type: 'variation',
             id: `var-${variation.id}`,
             variation: variation,
-            isVariation: true
-          });
-        });
-        
+            isVariation: true,
+          })
+        })
+
         // Move to next after black move
-        current = blackMove.mainLine;
-        currentMoveIndex += 2;
+        current = blackMove.mainLine
+        currentMoveIndex += 2
       } else {
         // No black move, just increment by 1
-        current = null;
-        currentMoveIndex += 1;
+        current = null
+        currentMoveIndex += 1
       }
     } else {
       // This is a black move starting a variation
@@ -402,274 +460,277 @@ function buildDisplayItems(startNode, items, moveIndex) {
         id: `pair-${moveNumber}`,
         moveNumber,
         whiteMove: null,
-        blackMove: current
-      };
-      items.push(movePair);
-      
+        blackMove: current,
+      }
+      items.push(movePair)
+
       // Add variations for this black move
-      const variations = current.children.filter(child => child !== current.mainLine);
-      variations.forEach(variation => {
+      const variations = current.children.filter((child) => child !== current.mainLine)
+      variations.forEach((variation) => {
         items.push({
           type: 'variation',
           id: `var-${variation.id}`,
           variation: variation,
-          isVariation: true
-        });
-      });
-      
-      current = current.mainLine;
-      currentMoveIndex += 1;
+          isVariation: true,
+        })
+      })
+
+      current = current.mainLine
+      currentMoveIndex += 1
     }
   }
 }
 
 function getMainLineMoves(startNode) {
-  const moves = [];
-  let current = startNode;
-  
+  const moves = []
+  let current = startNode
+
   // Skip the root node if it has no move
   if (!current.move && current.mainLine) {
-    current = current.mainLine;
+    current = current.mainLine
   }
-  
+
   while (current && current.move) {
-    moves.push(current);
-    current = current.mainLine;
+    moves.push(current)
+    current = current.mainLine
   }
-  
-  return moves;
+
+  return moves
 }
 
 function isNodeInTree(nodeToFind, treeRoot) {
-  if (!nodeToFind || !treeRoot) return false;
-  if (nodeToFind.id === treeRoot.id) return true;
-  
+  if (!nodeToFind || !treeRoot) return false
+  if (nodeToFind.id === treeRoot.id) return true
+
   if (treeRoot.children) {
     for (const child of treeRoot.children) {
       if (isNodeInTree(nodeToFind, child)) {
-        return true;
+        return true
       }
     }
   }
-  
-  return false;
+
+  return false
 }
 
 function isSelectedMove(moveNode) {
-  return props.currentNode && moveNode && props.currentNode.id === moveNode.id;
+  return props.currentNode && moveNode && props.currentNode.id === moveNode.id
 }
 
 function isMainLineMove(moveNode) {
-  if (!moveNode || !moveNode.parent) return true;
-  return moveNode.parent.mainLine === moveNode;
+  if (!moveNode || !moveNode.parent) return true
+  return moveNode.parent.mainLine === moveNode
 }
 
 async function handleAddMove() {
   if (newMove.value.trim()) {
-    emit('addMove', newMove.value.trim());
-    newMove.value = '';
+    emit('addMove', newMove.value.trim())
+    newMove.value = ''
   }
 }
 
-
 function showContextMenu(event, node) {
-  selectedNode.value = node;
-  showMenu.value = true;
-  
+  selectedNode.value = node
+  showMenu.value = true
+
   // Reset section collapsed states when opening menu
   sectionCollapsed.value = {
     moveEvaluation: true,
-    shashinType: true
-  };
-  
+    shashinType: true,
+  }
+
   // Position the context menu
-  const rect = event.target.getBoundingClientRect();
+  const rect = event.target.getBoundingClientRect()
   menuPosition.value = {
     x: event.clientX,
-    y: event.clientY
-  };
-  
+    y: event.clientY,
+  }
+
   // Ensure menu stays within viewport
   nextTick(() => {
     if (contextMenu.value) {
-      const menuRect = contextMenu.value.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      
+      const menuRect = contextMenu.value.getBoundingClientRect()
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+
       if (menuPosition.value.x + menuRect.width > viewportWidth) {
-        menuPosition.value.x = viewportWidth - menuRect.width - 10;
+        menuPosition.value.x = viewportWidth - menuRect.width - 10
       }
-      
+
       if (menuPosition.value.y + menuRect.height > viewportHeight) {
-        menuPosition.value.y = viewportHeight - menuRect.height - 10;
+        menuPosition.value.y = viewportHeight - menuRect.height - 10
       }
     }
-  });
+  })
 }
 
 function setShashinType(type) {
   if (selectedNode.value) {
-    emit('setShashinType', { node: selectedNode.value, type });
+    emit('setShashinType', { node: selectedNode.value, type })
   }
-  hideContextMenu();
+  hideContextMenu()
 }
 
 function setMoveEvaluation(type) {
   if (selectedNode.value) {
-    emit('setMoveEvaluation', { node: selectedNode.value, type });
+    emit('setMoveEvaluation', { node: selectedNode.value, type })
   }
-  hideContextMenu();
+  hideContextMenu()
 }
 
 function toggleSection(sectionName) {
-  sectionCollapsed.value[sectionName] = !sectionCollapsed.value[sectionName];
+  sectionCollapsed.value[sectionName] = !sectionCollapsed.value[sectionName]
 }
 
 function hideContextMenu() {
-  showMenu.value = false;
-  selectedNode.value = null;
+  showMenu.value = false
+  selectedNode.value = null
 }
 
 function getShashinIcon(node) {
-  if (!node) return '';
+  if (!node) return ''
 
   const shashinIcons = {
-      'high-tal': '⬆️⚔️',
-      'high-middle-tal': '⚔️',
-      'middle-tal': '⚔️',
-      'middle-low-tal': '⬇️⚔️',
-      'low-tal': '⚔️',
-      'capablanca': '⚖️',
-      'high-petrosian': '⬆️🛡️',
-      'high-middle-petrosian': '⬆️🟰🛡️',
-      'middle-petrosian': '🟰🛡️',
-      'middle-low-petrosian': '🟰⬇️🛡️',
-      'low-petrosian': '⬇️🛡️',
-      'chaos-all': '🌀'
-    };
-  
+    'high-tal': '⬆️⚔️',
+    'high-middle-tal': '⚔️',
+    'middle-tal': '⚔️',
+    'middle-low-tal': '⬇️⚔️',
+    'low-tal': '⚔️',
+    capablanca: '⚖️',
+    'high-petrosian': '⬆️🛡️',
+    'high-middle-petrosian': '⬆️🟰🛡️',
+    'middle-petrosian': '🟰🛡️',
+    'middle-low-petrosian': '🟰⬇️🛡️',
+    'low-petrosian': '⬇️🛡️',
+    'chaos-all': '🌀',
+  }
+
   // If manually set, use that
   if (node.shashinType) {
-    return shashinIcons[node.shashinType] || '';
+    return shashinIcons[node.shashinType] || ''
   }
-  
+
   // Auto-detect from evaluation if available
   if (node.evaluation) {
-    const autoType = getAutoShashinType(node.evaluation);
+    const autoType = getAutoShashinType(node.evaluation)
     if (autoType) {
-      return shashinIcons[autoType] || '';
+      return shashinIcons[autoType] || ''
     }
   }
-  
-  return '';
+
+  return ''
 }
 
 function getAutoShashinType(evaluation) {
-  if (!evaluation) return null;
+  if (!evaluation) return null
   // TODO: Implement auto-detection logic
-  return null; // Placeholder for now
+  return null // Placeholder for now
 }
 
 function getMoveEvaluationIcon(node) {
-  if (!node || !node.moveEvaluation) return '';
+  if (!node || !node.moveEvaluation) return ''
 
   const evaluationIcons = {
-    'brilliant': '✨',
-    'great': '❗',
-    'best': '✓',
-    'excellent': '⚡',
-    'good': '✓',
-    'book': '📖',
-    'inaccuracy': '⁈',
-    'mistake': '❓',
-    'blunder': '❌',
-    'missed-win': '💔'
-  };
+    brilliant: '✨',
+    great: '❗',
+    best: '✓',
+    excellent: '⚡',
+    good: '✓',
+    book: '📖',
+    inaccuracy: '⁈',
+    mistake: '❓',
+    blunder: '❌',
+    'missed-win': '💔',
+  }
 
-  return evaluationIcons[node.moveEvaluation] || '';
+  return evaluationIcons[node.moveEvaluation] || ''
 }
 
 // Check if the selected node can be promoted to main line
 const canPromoteToMainLine = computed(() => {
-  if (!selectedNode.value || !selectedNode.value.parent) return false;
-  
+  if (!selectedNode.value || !selectedNode.value.parent) return false
+
   // Can only promote if this node is not already the main line
-  const isCurrentlyMainLine = selectedNode.value.parent.mainLine === selectedNode.value;
-  
+  const isCurrentlyMainLine = selectedNode.value.parent.mainLine === selectedNode.value
+
   // Also check if this node is part of the main line path from root
-  const isOnMainLinePath = isNodeOnMainLinePath(selectedNode.value);
-  
+  const isOnMainLinePath = isNodeOnMainLinePath(selectedNode.value)
+
   // Can promote if it's either not the direct main line OR not on the main line path
-  const canPromote = !isCurrentlyMainLine || !isOnMainLinePath;
-  
-  return canPromote;
-});
+  const canPromote = !isCurrentlyMainLine || !isOnMainLinePath
+
+  return canPromote
+})
 
 // Check if a node is on the main line path from root to end
 function isNodeOnMainLinePath(node) {
-  if (!node || !node.parent) return false;
-  
+  if (!node || !node.parent) return false
+
   // Traverse up to find the root
-  let current = node;
+  let current = node
   while (current.parent) {
     // If at any point this node is not the main line of its parent,
     // then it's not on the main line path
     if (current.parent.mainLine !== current) {
-      return false;
+      return false
     }
-    current = current.parent;
+    current = current.parent
   }
-  
-  return true;
+
+  return true
 }
 
 function promoteToMainLine() {
   if (selectedNode.value && canPromoteToMainLine.value) {
-    emit('promoteVariation', selectedNode.value);
+    emit('promoteVariation', selectedNode.value)
   }
-  hideContextMenu();
+  hideContextMenu()
 }
 
 // Check if the selected node can be deleted (not the root node)
 const canDeleteMove = computed(() => {
-  if (!selectedNode.value) return false;
-  
+  if (!selectedNode.value) return false
+
   // Can't delete the root node (node with no move)
-  return !!selectedNode.value.move;
-});
+  return !!selectedNode.value.move
+})
 
 function deleteMove() {
   if (selectedNode.value && canDeleteMove.value) {
-    emit('deleteMove', selectedNode.value);
+    emit('deleteMove', selectedNode.value)
   }
-  hideContextMenu();
+  hideContextMenu()
 }
 
 // Click outside to close context menu
 function handleClickOutside(event) {
   if (showMenu.value && contextMenu.value && !contextMenu.value.contains(event.target)) {
-    hideContextMenu();
+    hideContextMenu()
   }
 }
 
 // Add event listener for clicking outside
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside);
-});
+  document.addEventListener('click', handleClickOutside)
+})
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside);
-});
+  document.removeEventListener('click', handleClickOutside)
+})
 
 // Focus input when analysis mode is enabled and this node is current
-watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree, analysisMode]) => {
-  if (isInTree && analysisMode) {
-    await nextTick();
-    if (moveInput.value) {
-      moveInput.value.focus();
+watch(
+  () => [isCurrentNodeInTree.value, props.isAnalysisMode],
+  async ([isInTree, analysisMode]) => {
+    if (isInTree && analysisMode) {
+      await nextTick()
+      if (moveInput.value) {
+        moveInput.value.focus()
+      }
     }
-  }
-}, { immediate: true });
+  },
+  { immediate: true },
+)
 </script>
 
 <style scoped>
@@ -758,8 +819,8 @@ watch(() => [isCurrentNodeInTree.value, props.isAnalysisMode], async ([isInTree,
 .move-text.current-move {
   background-color: #cdd26a;
   color: black !important;
-  
-  font-weight: bold !important; 
+
+  font-weight: bold !important;
 }
 
 .move-text.main-line {

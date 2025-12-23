@@ -4,43 +4,33 @@
       <h6 class="settings-title">Engine Analysis</h6>
       <div class="toggle-container">
         <label class="toggle-switch">
-          <input 
-            type="checkbox" 
-            v-model="localEnabled"
-            @change="updateEnabled"
-          />
+          <input type="checkbox" v-model="localEnabled" @change="updateEnabled" />
           <span class="slider"></span>
         </label>
         <span class="toggle-label">{{ localEnabled ? 'ON' : 'OFF' }}</span>
       </div>
     </div>
-    
+
     <div v-if="localEnabled" class="setting-item">
-      <label for="depth-slider" class="setting-label">
-        Depth: {{ localDepth }}
-      </label>
-      <input 
+      <label for="depth-slider" class="setting-label"> Depth: {{ localDepth }} </label>
+      <input
         id="depth-slider"
-        type="range" 
-        v-model="localDepth" 
-        :min="MIN_DEPTH" 
-        :max="MAX_DEPTH" 
+        type="range"
+        v-model="localDepth"
+        :min="MIN_DEPTH"
+        :max="MAX_DEPTH"
         step="1"
         class="setting-slider"
         @input="updateDepth"
       />
     </div>
-    
+
     <div v-if="localEnabled" class="setting-item">
       <div class="setting-toggle">
         <label class="setting-label">Show Best Move Arrow</label>
         <div class="toggle-container-small">
           <label class="toggle-switch-small">
-            <input 
-              type="checkbox" 
-              v-model="localShowBestMove"
-              @change="updateShowBestMove"
-            />
+            <input type="checkbox" v-model="localShowBestMove" @change="updateShowBestMove" />
             <span class="slider-small"></span>
           </label>
           <!-- <span class="toggle-label-small">{{ localShowBestMove ? 'ON' : 'OFF' }}</span> -->
@@ -49,56 +39,63 @@
     </div>
 
     <div v-if="localEnabled" class="setting-item">
-      <label for="lines-slider" class="setting-label">
-        Show Lines: {{ localShowLines }}
-      </label>
-      <input 
+      <label for="lines-slider" class="setting-label"> Show Lines: {{ localShowLines }} </label>
+      <input
         id="lines-slider"
-        type="range" 
-        v-model="localShowLines" 
-        :min="MIN_SHOW_LINES" 
-        :max="MAX_SHOW_LINES" 
+        type="range"
+        v-model="localShowLines"
+        :min="MIN_SHOW_LINES"
+        :max="MAX_SHOW_LINES"
         step="1"
         class="setting-slider"
         @input="updateShowLines"
       />
     </div>
-    
+
     <div v-if="localEnabled" class="setting-item">
-      <button 
-        @click="resetToDefaults" 
-        class="btn btn-sm reset-btn"
-      >
-        Reset to Default
-      </button>
+      <button @click="resetToDefaults" class="btn btn-sm reset-btn">Reset to Default</button>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, watch, onUnmounted } from 'vue'
-import { DEFAULT_DEPTH, DEFAULT_EVALUATION_ENABLED, DEFAULT_SHOW_BEST_MOVE, DEFAULT_SHOW_LINES, MIN_DEPTH, MAX_DEPTH, MIN_SHOW_LINES, MAX_SHOW_LINES } from '@/constants/evaluation.js'
+import {
+  DEFAULT_DEPTH,
+  DEFAULT_EVALUATION_ENABLED,
+  DEFAULT_SHOW_BEST_MOVE,
+  DEFAULT_SHOW_LINES,
+  MIN_DEPTH,
+  MAX_DEPTH,
+  MIN_SHOW_LINES,
+  MAX_SHOW_LINES,
+} from '@/constants/evaluation.js'
 
 const props = defineProps({
   depth: {
     type: Number,
-    default: DEFAULT_DEPTH
+    default: DEFAULT_DEPTH,
   },
   enabled: {
     type: Boolean,
-    default: DEFAULT_EVALUATION_ENABLED
+    default: DEFAULT_EVALUATION_ENABLED,
   },
   showBestMove: {
     type: Boolean,
-    default: DEFAULT_SHOW_BEST_MOVE
+    default: DEFAULT_SHOW_BEST_MOVE,
   },
   showLines: {
     type: Number,
-    default: DEFAULT_SHOW_LINES
-  }
+    default: DEFAULT_SHOW_LINES,
+  },
 })
 
-const emit = defineEmits(['update:depth', 'update:enabled', 'update:showBestMove', 'update:showLines'])
+const emit = defineEmits([
+  'update:depth',
+  'update:enabled',
+  'update:showBestMove',
+  'update:showLines',
+])
 
 const localDepth = ref(props.depth)
 const localEnabled = ref(props.enabled)
@@ -145,22 +142,34 @@ onUnmounted(() => {
 })
 
 // Watch for prop changes
-watch(() => props.depth, (newVal) => {
-  localDepth.value = newVal
-  originalDepth.value = newVal
-})
+watch(
+  () => props.depth,
+  (newVal) => {
+    localDepth.value = newVal
+    originalDepth.value = newVal
+  },
+)
 
-watch(() => props.enabled, (newVal) => {
-  localEnabled.value = newVal
-})
+watch(
+  () => props.enabled,
+  (newVal) => {
+    localEnabled.value = newVal
+  },
+)
 
-watch(() => props.showBestMove, (newVal) => {
-  localShowBestMove.value = newVal
-})
+watch(
+  () => props.showBestMove,
+  (newVal) => {
+    localShowBestMove.value = newVal
+  },
+)
 
-watch(() => props.showLines, (newVal) => {
-  localShowLines.value = newVal
-})
+watch(
+  () => props.showLines,
+  (newVal) => {
+    localShowLines.value = newVal
+  },
+)
 </script>
 
 <style scoped>
@@ -215,19 +224,19 @@ watch(() => props.showLines, (newVal) => {
   right: 0;
   bottom: 0;
   background-color: #444;
-  transition: .4s;
+  transition: 0.4s;
   border-radius: 24px;
 }
 
 .slider:before {
   position: absolute;
-  content: "";
+  content: '';
   height: 18px;
   width: 18px;
   left: 3px;
   bottom: 3px;
   background-color: white;
-  transition: .4s;
+  transition: 0.4s;
   border-radius: 50%;
 }
 
@@ -293,7 +302,9 @@ input:checked + .slider:before {
   border-color: #f2f2f2;
   color: #f2f2f2;
   background-color: transparent;
-  transition: color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+  transition:
+    color 0.15s ease-in-out,
+    border-color 0.15s ease-in-out;
   font-size: 13px;
   padding: 8px 16px;
 }
