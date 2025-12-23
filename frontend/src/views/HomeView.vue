@@ -9,7 +9,7 @@ import { DEFAULT_DEPTH, DEFAULT_SHOW_LINES } from "@/constants/evaluation.js";
 import { EvaluationService } from "@/services/evaluationService.js";
 import { useChessStore } from "@/stores/useChessStore";
 
-// --- Helper semplice per UUID ---
+// Helper per UUID
 function generateUUID() {
 	return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
 		var r = (Math.random() * 16) | 0,

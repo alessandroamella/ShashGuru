@@ -23,11 +23,10 @@ from prometheus_client import (
     CONTENT_TYPE_LATEST,
 )
 from flask_cors import CORS
-import uuid
 import logging
 import time
 from functools import wraps
-
+import chess
 
 import LLMHandler
 import engineCommunication
@@ -217,15 +216,6 @@ def response():
 def evaluation():
     """
     Returns engine evaluation for a given FEN position.
-
-    Expected JSON payload:
-    {
-        "fen": "string",
-        "depth": int (optional, default: 15),
-        "lines": int (optional, default: 3)
-    }
-
-    Returns JSON with evaluation data including score, best moves, etc.
     """
     try:
         data = request.get_json()
@@ -243,6 +233,40 @@ def evaluation():
         # Get engine analysis
         bestmoves, ponder = engineCommunication.call_engine(fen, depth, lines=lines)
 
+        # NEW: Handle Game Over when engine returns no moves
+        if not bestmoves:
+            board = chess.Board(fen)
+            if board.is_checkmate():
+                # Side to move lost (is in checkmate)
+                # Score: -32000 (standard convention for 'mated')
+                # Winprob: 0 (Decisive loss)
+                bestmoves = [
+                    {
+                        "move": None,
+                        "score": -32000,
+                        "mate": 0,
+                        "winprob": 0,
+                        "pv_moves": [],
+                    }
+                ]
+            elif (
+                board.is_stalemate()
+                or board.is_insufficient_material()
+                or board.is_seventyfive_moves()
+                or board.is_fivefold_repetition()
+            ):
+                # Draw
+                bestmoves = [
+                    {
+                        "move": None,
+                        "score": 0,
+                        "mate": None,
+                        "winprob": 50,
+                        "pv_moves": [],
+                    }
+                ]
+
+        # Clean None values if engine failed but it wasn't a game over
         if bestmoves:
             bestmoves = [m for m in bestmoves if m is not None]
 
@@ -258,7 +282,7 @@ def evaluation():
                         "moves": (
                             " ".join(move_data["pv_moves"])
                             if "pv_moves" in move_data and move_data["pv_moves"]
-                            else move_data["move"]
+                            else (move_data["move"] if move_data["move"] else "")
                         ),
                         "evaluation": (
                             move_data["score"]

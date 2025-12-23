@@ -17,6 +17,7 @@
 from openai import OpenAI
 import logging as log
 import warnings
+import math
 
 # Import for prompt creation
 from fenManipulation import fen_explainer
@@ -257,6 +258,29 @@ def create_prompt_single_engine(fen, bestmoves, ponder, style="default"):
     log.basicConfig(level=log.INFO)
     explainedFEN, side = fen_explainer(fen)
     board = chess.Board(fen)
+
+    # NEW: Check for game over conditions before checking engine analysis
+    if board.is_checkmate():
+        winner = "Black" if board.turn == chess.WHITE else "White"
+        prompt = f"{explainedFEN}\n\nThe game is over. {winner} has won by checkmate. Explain the final position and the checkmate pattern."
+        if style == "grandmaster":
+            prompt = f"The game has concluded with {winner} delivering checkmate. {explainedFEN}\n\nAs a Grandmaster, analyze the final mating pattern and the decisive elements of the position."
+        return prompt
+
+    if board.is_stalemate():
+        prompt = f"{explainedFEN}\n\nThe game is drawn by stalemate. Explain why the king has no legal moves but is not in check."
+        if style == "grandmaster":
+            prompt = f"The game has ended in a stalemate. {explainedFEN}\n\nAs a Grandmaster, comment on this draw resource."
+        return prompt
+
+    if board.is_insufficient_material():
+        prompt = f"{explainedFEN}\n\nThe game is drawn due to insufficient material."
+        return prompt
+
+    if board.is_game_over():  # Catch-all for other draws (repetition, 50-move)
+        result = board.result()
+        prompt = f"{explainedFEN}\n\nThe game has ended. Result: {result}. Explain the situation."
+        return prompt
 
     # Get position context
     position_context = analyze_position_context(fen, board)
