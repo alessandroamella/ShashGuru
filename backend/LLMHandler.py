@@ -58,6 +58,13 @@ Keep responses focused and concise - avoid lengthy explanations. 3-4 sentences m
 
 For follow-up questions, maintain the same authoritative and educational tone, always grounding responses in sound chess theory while staying brief.
 """,
+    "coach": """
+You are a chess coach helping a student. Do not just give the answer.
+Explain the logic behind the move simply.
+After the explanation, ask the user a simple question related to the position to check their understanding.
+Keep the tone encouraging and educational.
+Be concise: 2-3 sentences plus one short question.
+""",
 }
 
 # Keep backward compatibility
@@ -67,6 +74,7 @@ SYSTEM_MESSAGE = SYSTEM_MESSAGES["default"]
 STYLE_LABELS = {
     "default": "Commentator",
     "grandmaster": "Grandmaster",
+    "coach": "Chess coach",
 }
 
 
@@ -316,6 +324,10 @@ def create_prompt_single_engine(fen, bestmoves, ponder, style="default"):
         prompt = create_grandmaster_prompt(
             explainedFEN, side, position_context, moves_analysis
         )
+    elif style == "coach":
+        prompt = create_coach_prompt(
+            explainedFEN, side, position_context, moves_analysis
+        )
     else:  # default/commentator
         prompt = create_default_prompt(
             explainedFEN, side, position_context, moves_analysis
@@ -335,11 +347,11 @@ def create_default_prompt(explainedFEN, side, position_context, moves_analysis):
 
     prompt = f"""{explainedFEN}
 
-{position_context}
+    {position_context}
 
-The engine recommends {side} to play {best_move['move_san']}, leading to the continuation {best_move['continuation']}. The position evaluation shows that {best_move['evaluation'].lower()}. 
+    The engine recommends {side} to play {best_move['move_san']}, leading to the continuation {best_move['continuation']}. The position evaluation shows that {best_move['evaluation'].lower()}. 
 
-In 2-3 sentences, explain why {best_move['move_san']} is the strongest choice and what this evaluation means for {side}'s position. Focus only on the concrete information provided."""
+    In 2-3 sentences, explain why {best_move['move_san']} is the strongest choice and what this evaluation means for {side}'s position. Focus only on the concrete information provided."""
 
     return prompt
 
@@ -357,15 +369,34 @@ def create_grandmaster_prompt(explainedFEN, side, position_context, moves_analys
 
     prompt = f"""{explainedFEN}
 
-{position_context}
+    {position_context}
 
-Side to move: {side}
+    Side to move: {side}
 
-Engine Analysis - Top Candidate Moves:
-{moves_text}
+    Engine Analysis - Top Candidate Moves:
+    {moves_text}
 
-As a grandmaster, provide a professional analysis of this position. Evaluate the strategic merits of the top recommendation, consider the alternative options, and explain the underlying chess principles that make these moves strong. Address both tactical and positional factors that influence the evaluation."""
+    As a grandmaster, provide a professional analysis of this position. Evaluate the strategic merits of the top recommendation, consider the alternative options, and explain the underlying chess principles that make these moves strong. Address both tactical and positional factors that influence the evaluation."""
 
+    return prompt
+
+def create_coach_prompt(explainedFEN, side, position_context, moves_analysis):
+    if not moves_analysis:
+        return f"{explainedFEN}\n\nThe engine failed to analyze this position. Please ask me to analyze it again or check the logs."
+
+    best_move = moves_analysis[0]
+
+    prompt = f"""{explainedFEN}
+
+    {position_context}
+
+    The engine recommends {side} to play {best_move['move_san']}.
+
+    Please analyze this position and output the response in exactly this format:
+    - Best Move: {best_move['move_san']}
+    - Key Idea: [Explain the strategic goal in 1 sentence]
+    - Threat: [What risks might there be in making this move, if any?]
+    """
     return prompt
 
 
