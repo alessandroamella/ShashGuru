@@ -546,6 +546,28 @@ def update_live_state():
     return jsonify({"success": False, "error": "Not authorized"}), 403
 
 
+@app.route("/live/leave", methods=["POST"])
+def leave_live_state():
+    """Allows the current controller to release control explicitly."""
+    data = request.get_json()
+    user_id = data.get("user_id")
+
+    cache = get_cache().redis_client
+    if not cache:
+        return jsonify({"error": "Redis not available"}), 500
+
+    current_controller = cache.get(LIVE_KEY_CONTROLLER)
+
+    # Only the current controller can leave (release the lock)
+    if current_controller == user_id:
+        cache.delete(LIVE_KEY_CONTROLLER)
+        # We optionally delete last update to ensure it's immediately free
+        cache.delete(LIVE_KEY_LAST_UPDATE)
+        return jsonify({"success": True, "message": "You are now a spectator"})
+
+    return jsonify({"success": False, "error": "You are not the controller"}), 403
+
+
 if __name__ == "__main__":
     # This will only run when called directly (not with gunicorn)
     logging.basicConfig(level=logging.INFO)

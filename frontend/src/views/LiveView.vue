@@ -31,19 +31,19 @@ async function refreshFeaturedEvent() {
 }
 
 // Fetch tournament info and list of rounds
-async function fetchEvent() {
-  error.value = null
-  try {
-    const res = await fetch(`https://lichess.org/api/broadcast/${eventId.value}`)
-    if (!res.ok) throw new Error('Event not found')
-    const data = await res.json()
+// async function fetchEvent() {
+//   error.value = null
+//   try {
+//     const res = await fetch(`https://lichess.org/api/broadcast/${eventId.value}`)
+//     if (!res.ok) throw new Error('Event not found')
+//     const data = await res.json()
 
-    // Pick default round if available
-    roundId.value = data.defaultRoundId || (data.rounds[0] && data.rounds[0].id) || ''
-  } catch (err) {
-    error.value = err.message
-  }
-}
+//     // Pick default round if available
+//     roundId.value = data.defaultRoundId || (data.rounds[0] && data.rounds[0].id) || ''
+//   } catch (err) {
+//     error.value = err.message
+//   }
+// }
 
 function splitPGNs(pgnText) {
   //Takes the full PGN list from the Lichess API and splits it into individual games
@@ -110,7 +110,7 @@ function setFromUrl(url) {
     const parts = url.split('/')
     eventId.value = parts[5] || ''
     roundId.value = parts[6].split('#')[0] || ''
-  } catch (err) {
+  } catch {
     error.value = 'Invalid URL format'
   }
 }

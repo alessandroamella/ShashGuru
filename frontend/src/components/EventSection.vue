@@ -82,7 +82,7 @@ function add5() {
 // Watch for changes to pgnList with debouncing
 watch(
   () => props.pgnList,
-  (newPgnList, oldPgnList) => {
+  (/* newPgnList, oldPgnList */) => {
     pgnListToRender.value = []
     add5()
   },

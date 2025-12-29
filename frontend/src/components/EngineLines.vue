@@ -146,7 +146,7 @@ function parseMoves(movesString) {
   let currentMoveNumber = fullMoveNumber
   let isCurrentlyWhite = isWhiteToMove
 
-  uciMoves.forEach((uciMove, index) => {
+  uciMoves.forEach((uciMove, /* index */) => {
     // Skip move numbers that might be in the string
     if (uciMove.match(/^\d+\.+$/)) return
 

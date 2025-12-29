@@ -7,7 +7,6 @@ import EngineLines from '@/components/EngineLines.vue'
 import MoveTreeDisplay from '@/components/MoveTreeDisplay.vue'
 import { DEFAULT_DEPTH, DEFAULT_SHOW_LINES } from '@/constants/evaluation.js'
 import { EvaluationService } from '@/services/evaluationService.js'
-import { useChessStore } from '@/stores/useChessStore'
 
 // Helper per UUID
 function generateUUID() {
@@ -26,9 +25,8 @@ const hasPlayerInfo = ref(false)
 const hasMoves = ref(false)
 const selectedMoveIndex = ref(0)
 const moveRefs = ref([])
-const chessStore = useChessStore()
 
-// --- LIVE MODE STATE ---
+// Live mode state
 const myUserId = ref(localStorage.getItem('shashguru_uid') || generateUUID())
 localStorage.setItem('shashguru_uid', myUserId.value)
 
@@ -41,6 +39,12 @@ const liveState = ref({
 
 const isController = computed(() => liveState.value.controller_id === myUserId.value)
 const isSpectator = computed(() => !liveState.value.is_free && !isController.value)
+const statusClass = computed(() => {
+  if (isController.value) return 'bg-success'
+  if (!liveState.value.is_free) return 'bg-danger'
+  if (liveState.value.is_free) return 'bg-secondary'
+  return 'bg-dark'
+})
 const pollingInterval = ref(null)
 
 // Tree structure for moves
@@ -67,39 +71,45 @@ const isEngineEvaluationLoading = ref(false)
 const showLines = ref(DEFAULT_SHOW_LINES)
 const evaluationDepth = ref(DEFAULT_DEPTH)
 
-// --- FUNZIONI LIVE ---
+// Funzioni live
 
 async function pollLiveState() {
   try {
     const serverUrl = import.meta.env.BASE_URL + 'backend'
-    // const serverUrl = 'http://localhost:5000'; // Usa quello che usi di solito
-
     const res = await fetch(`${serverUrl}/live/state`)
     const data = await res.json()
 
     liveState.value = data
 
-    // SE SONO SPETTATORE: Sincronizza il mio stato con quello del server
-    if (isSpectator.value) {
-      // 1. Sync Scacchiera
+    // Sync FEN if we are just watching
+    if (!isController.value) {
       if (data.fen && data.fen !== fen.value) {
-        console.log('Live Update FEN:', data.fen)
+        // Prevent local updates from fighting server updates if we aren't controller
         fen.value = data.fen
-        // Nota: ChessBoard guarderà 'fen' e si aggiornerà
       }
-
-      // 2. Sync Chat (Opzionale se vuoi vedere anche la chat)
-      // Bisognerebbe passare data.chat al componente AIChat tramite prop o emit,
-      // ma per ora concentriamoci sulla scacchiera come richiesto.
-    } else if (liveState.value.is_free) {
-      // Se è libero, provo a prenderlo io automaticamente (o potresti mettere un bottone "Gioca")
-      claimController()
     }
+
+    // REMOVED: The auto-claim logic
+    // } else if (liveState.value.is_free) {
+    //   claimController()
+    // }
   } catch (e) {
     console.error('Polling error', e)
   }
 }
 
+// Add this new function to leave the game
+async function leaveGame() {
+  const serverUrl = import.meta.env.BASE_URL + 'backend'
+  await fetch(`${serverUrl}/live/leave`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: myUserId.value }),
+  })
+  // The next pollLiveState will see that controller_id is null
+}
+
+// Ensure claimController is available (it likely already is in your code)
 async function claimController() {
   const serverUrl = import.meta.env.BASE_URL + 'backend'
   await fetch(`${serverUrl}/live/claim`, {
@@ -107,7 +117,6 @@ async function claimController() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ user_id: myUserId.value }),
   })
-  // Al prossimo poll vedrò che sono io il controllore
 }
 
 async function pushUpdate(newFen, newChat = null) {
@@ -370,16 +379,6 @@ function setMovesFromPGN(payload) {
 }
 
 // Navigation functions
-function onMoveClicked(index) {
-  const mainLine = getMainLineMoves()
-  if (index >= 0 && index < mainLine.length) {
-    navigateToNode(mainLine[index])
-    rebuildMovesDisplay()
-  } else if (index === -1) {
-    navigateToNode(moveTree.value)
-    rebuildMovesDisplay()
-  }
-}
 
 function backStart() {
   navigateToNode(moveTree.value)
@@ -463,27 +462,6 @@ function handleKeyDown(event) {
   }
 }
 
-function navigateToPreviousVariation() {
-  if (!currentNode.value || !currentNode.value.parent) return
-
-  const siblings = currentNode.value.parent.children
-  const currentIndex = siblings.indexOf(currentNode.value)
-  if (currentIndex > 0) {
-    navigateToNode(siblings[currentIndex - 1])
-    rebuildMovesDisplay()
-  }
-}
-
-function navigateToNextVariation() {
-  if (!currentNode.value || !currentNode.value.parent) return
-
-  const siblings = currentNode.value.parent.children
-  const currentIndex = siblings.indexOf(currentNode.value)
-  if (currentIndex < siblings.length - 1) {
-    navigateToNode(siblings[currentIndex + 1])
-    rebuildMovesDisplay()
-  }
-}
 
 function toggleAnalysisMode() {
   isAnalysisMode.value = !isAnalysisMode.value
@@ -584,7 +562,6 @@ function promoteVariation(nodeToPromote) {
   // Now variationRoot should be the first move of the variation
   if (variationRoot.parent) {
     const variationParent = variationRoot.parent
-    const oldMainLine = variationParent.mainLine
 
     // Swap the main line
     variationParent.mainLine = variationRoot
@@ -709,22 +686,41 @@ watch(selectedMoveIndex, async () => {
 </script>
 
 <template>
-  <!-- Modalità spettatore o giocatore (max 1) -->
-  <div v-if="isSpectator" class="bg-danger text-white text-center p-2 fw-bold w-100">
-    SPECTATOR MODE: Another user is playing, you are watching live
-  </div>
-  <div v-else-if="isController" class="bg-success text-white text-center p-2 fw-bold w-100">
-    You are playing (controller)
-  </div>
-  <div v-else class="bg-secondary text-white text-center p-2 fw-bold w-100">
-    Connecting to live server...
+  <!-- Control Bar -->
+  <div
+    class="d-flex justify-content-center w-100 p-2 text-white fw-bold align-items-center"
+    :class="statusClass"
+  >
+    <!-- Case 1: I am the player -->
+    <div v-if="isController" class="d-flex align-items-center gap-3">
+      <span>You are playing (Controller)</span>
+      <button class="btn btn-sm btn-light text-danger fw-bold" @click="leaveGame">
+        Stop playing (Spectate)
+      </button>
+    </div>
+
+    <!-- Case 2: Someone else is playing -->
+    <div v-else-if="!liveState.is_free && !isController">
+      SPECTATOR MODE: Another user is playing
+    </div>
+
+    <!-- Case 3: The spot is free -->
+    <div v-else-if="liveState.is_free" class="d-flex align-items-center gap-3">
+      <span>The board is free</span>
+      <button class="btn btn-sm btn-success fw-bold" @click="claimController">
+        Join game (Play)
+      </button>
+    </div>
+
+    <!-- Case 4: Connecting -->
+    <div v-else>Connecting...</div>
   </div>
 
   <div id="chessboard" class="d-flex flex-column flex-lg-row justify-content-evenly m-2 m-lg-5">
     <div class="flex-item mx-0 p-3 pt-0" :class="{ loading: isLoading }">
       <ChessBoard
         :fenProp="fen"
-        :viewOnly="isSpectator"
+        :viewOnly="!isController"
         @updateFen="updateFen"
         @setMovesFromPGN="setMovesFromPGN"
         @moveAdded="handleMoveAdded"
@@ -783,7 +779,7 @@ watch(selectedMoveIndex, async () => {
               </div>
 
               <!-- Game Result  -->
-              <div class="flex-shrink-0 mx-auto px-2">
+              <div class="shrink-0 mx-auto px-2">
                 <div class="fs-4 fw-bold">{{ gameResult }}</div>
               </div>
 
@@ -798,7 +794,7 @@ watch(selectedMoveIndex, async () => {
             <div v-if="activeTab === 'moves'" class="flex-fill">
               <div
                 id="moveHeader"
-                class="d-flex justify-content-center align-items-center py-1 flex-shrink-0"
+                class="d-flex justify-content-center align-items-center py-1 shrink-0"
               >
                 <div>
                   <button

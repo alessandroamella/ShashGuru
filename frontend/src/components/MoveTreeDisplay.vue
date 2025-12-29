@@ -293,7 +293,6 @@
 
 <script setup>
 import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
-import EngineLines from './EngineLines.vue'
 
 const props = defineProps({
   node: {
@@ -481,22 +480,6 @@ function buildDisplayItems(startNode, items, moveIndex) {
   }
 }
 
-function getMainLineMoves(startNode) {
-  const moves = []
-  let current = startNode
-
-  // Skip the root node if it has no move
-  if (!current.move && current.mainLine) {
-    current = current.mainLine
-  }
-
-  while (current && current.move) {
-    moves.push(current)
-    current = current.mainLine
-  }
-
-  return moves
-}
 
 function isNodeInTree(nodeToFind, treeRoot) {
   if (!nodeToFind || !treeRoot) return false
@@ -540,7 +523,6 @@ function showContextMenu(event, node) {
   }
 
   // Position the context menu
-  const rect = event.target.getBoundingClientRect()
   menuPosition.value = {
     x: event.clientX,
     y: event.clientY,
