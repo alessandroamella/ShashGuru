@@ -1,13 +1,23 @@
-FROM node:20-alpine AS build-stage 
+FROM node:20-alpine AS build-stage
 
 WORKDIR /app
 
-COPY frontend/package*.json ./
-RUN npm install
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
+# Copy package files
+COPY frontend/pnpm-lock.yaml frontend/package.json ./
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy source code
 COPY frontend/ .
-RUN npm run build
 
+# Build
+RUN pnpm build
+
+# Production image
 FROM nginx:stable-alpine AS production-stage
 
 COPY --from=build-stage /app/dist /usr/share/nginx/html
@@ -15,4 +25,3 @@ COPY --from=build-stage /app/dist /usr/share/nginx/html
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
-
