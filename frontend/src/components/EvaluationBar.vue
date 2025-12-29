@@ -6,37 +6,33 @@
     >
       <div class="evaluation-bar" :class="{ flipped: boardOrientation === 'black' }">
         <template v-if="enabled">
-          <!-- Top section (black when white orientation, white when black orientation) -->
+          <!-- White section - always shows white's advantage -->
           <div
-            class="eval-section"
-            :class="boardOrientation !== 'white' ? 'black-section' : 'white-section'"
+            class="eval-section white-section"
             :style="{
-              height: (boardOrientation !== 'white' ? blackPercentage : whitePercentage) + '%',
+              height: whitePercentage + '%',
             }"
           >
             <div
-              v-if="(boardOrientation !== 'white' ? blackPercentage : whitePercentage) > 15"
-              class="eval-text"
-              :class="boardOrientation !== 'white' ? 'black-text' : 'white-text'"
+              v-if="whitePercentage > 15"
+              class="eval-text white-text"
             >
-              {{ formatEvaluation(boardOrientation !== 'white') }}
+              {{ formatEvaluation(false) }}
             </div>
           </div>
 
-          <!-- Bottom section (white when white orientation, black when black orientation) -->
+          <!-- Black section - always shows black's advantage -->
           <div
-            class="eval-section"
-            :class="boardOrientation !== 'white' ? 'white-section' : 'black-section'"
+            class="eval-section black-section"
             :style="{
-              height: (boardOrientation !== 'white' ? whitePercentage : blackPercentage) + '%',
+              height: blackPercentage + '%',
             }"
           >
             <div
-              v-if="(boardOrientation !== 'white' ? whitePercentage : blackPercentage) > 15"
-              class="eval-text"
-              :class="boardOrientation !== 'white' ? 'white-text' : 'black-text'"
+              v-if="blackPercentage > 15"
+              class="eval-text black-text"
             >
-              {{ formatEvaluation(boardOrientation === 'white') }}
+              {{ formatEvaluation(true) }}
             </div>
           </div>
         </template>
@@ -131,7 +127,6 @@ const evaluation = ref(null);
 const loading = ref(false);
 const error = ref(null);
 const evaluationSideToMove = ref(true); // Store whose turn it was when evaluation was calculated
-const lastValidPercentage = ref(50); // Store the last valid percentage to avoid flipping during loading
 const isErrorTooltipVisible = ref(false);
 
 // Helper function to determine whose turn it is from FEN
@@ -143,50 +138,45 @@ const isWhiteToMove = computed(() => {
 
 // Convert evaluation score to percentage (0-100)
 const evaluationPercentage = computed(() => {
-	// If we're loading a new evaluation, keep showing the previous evaluation unchanged
-	if (loading.value && evaluation.value) {
-		return lastValidPercentage.value;
-	}
-
 	if (!evaluation.value) return 50; // Neutral position
 
 	let score = 0;
 
+	// 1. Check for Mate (Highest Priority)
 	if (evaluation.value.mate !== null) {
-		// Mate situation - set to extreme values
 		let mateValue = evaluation.value.mate;
-		// If it was black to move when evaluation was calculated, flip the mate value to show from white's perspective
 		if (!evaluationSideToMove.value) {
 			mateValue = -mateValue;
 		}
 
 		if (mateValue > 0) {
-			return 100; // White mate - white advantage
+			return 100; // White mate
 		} else {
-			return 0; // Black mate - black advantage
+			return 0; // Black mate
 		}
-	} else if (evaluation.value.score !== null) {
-		// Regular evaluation in centipawns
+	}
+	// 2. MOVED UP: Check for Win Probability (Higher Priority than Score)
+	else if (evaluation.value.winprob !== null) {
+		let winProb = evaluation.value.winprob;
+
+		// Normalize to White's perspective
+		if (!evaluationSideToMove.value) {
+			winProb = 100 - winProb;
+		}
+
+		return Math.max(0, Math.min(100, winProb));
+	}
+	// 3. MOVED DOWN: Check for Score (Fallback)
+	else if (evaluation.value.score !== null) {
 		score = evaluation.value.score;
-		// If it was black to move when evaluation was calculated, flip the score to show from white's perspective
 		if (!evaluationSideToMove.value) {
 			score = -score;
 		}
 
-		// Convert centipawn evaluation to percentage for fallback
+		// Convert centipawn evaluation to percentage
+		// formula: percentage = 50 + (score / 20)
 		const normalizedScore = Math.max(-1000, Math.min(1000, score));
 		return Math.max(5, Math.min(95, 50 + normalizedScore / 20));
-	} else if (evaluation.value.winprob !== null) {
-		// Gestione corretta Win Probability (0-100)
-		let winProb = evaluation.value.winprob;
-		// Il backend invia un valore 0-100.
-		// Se tocca al nero, il valore è "Probabilità che il nero vinca".
-		// La barra visualizza la percentuale del BIANCO. Quindi invertiamo.
-		if (!evaluationSideToMove.value) {
-			winProb = 100 - winProb;
-		}
-		// Clamp per sicurezza grafica
-		return Math.max(0, Math.min(100, winProb));
 	}
 
 	return 50;
@@ -197,16 +187,11 @@ const whitePercentage = computed(() => {
 	return evaluationPercentage.value;
 });
 
-const blackPercentage = computed(() => 100 - whitePercentage.value);
-
-const lastValidEvaluation = ref("");
+const blackPercentage = computed(() => {
+	return 100 - whitePercentage.value;
+});
 
 const formatEvaluation = (isForBlack = false) => {
-	// If we're loading a new evaluation, keep showing the previous evaluation text unchanged
-	if (loading.value && evaluation.value) {
-		return lastValidEvaluation.value;
-	}
-
 	if (!evaluation.value) return "";
 
 	// Priorità: Mate > WinProb > Score CP
@@ -327,43 +312,6 @@ watch(
 	},
 );
 
-// Watcher aggiornato per salvare correttamente lastValidPercentage con la nuova logica
-watch([evaluation, loading], ([newEval, isLoading]) => {
-	if (newEval && !isLoading) {
-		// Update the last valid percentage when we have a new evaluation and we're not loading
-		let score = 0;
-
-		if (newEval.mate !== null) {
-			let mateValue = newEval.mate;
-			if (!evaluationSideToMove.value) {
-				mateValue = -mateValue;
-			}
-			lastValidPercentage.value = mateValue > 0 ? 100 : 0;
-			const mateSign = mateValue >= 0 ? "+" : "";
-			lastValidEvaluation.value = `M${mateSign}${mateValue}`;
-		} else if (newEval.winprob !== null) {
-			let winProb = newEval.winprob;
-			if (!evaluationSideToMove.value) {
-				winProb = 100 - winProb;
-			}
-			lastValidPercentage.value = Math.max(0, Math.min(100, winProb));
-			lastValidEvaluation.value = `${Math.round(winProb)}%`;
-		} else if (newEval.score !== null) {
-			score = newEval.score;
-			if (!evaluationSideToMove.value) {
-				score = -score;
-			}
-			const normalizedScore = Math.max(-1000, Math.min(1000, score));
-			lastValidPercentage.value = Math.max(
-				5,
-				Math.min(95, 50 + normalizedScore / 20),
-			);
-			const scoreInPawns = score / 100;
-			const sign = scoreInPawns >= 0 ? "+" : "";
-			lastValidEvaluation.value = `${sign}${scoreInPawns.toFixed(1)}`;
-		}
-	}
-});
 </script>
 
 <style scoped>
@@ -472,6 +420,10 @@ watch([evaluation, loading], ([newEval, isLoading]) => {
   width: 100%;
   height: 100%;
   position: relative;
+}
+
+.evaluation-bar.flipped {
+  flex-direction: column;
 }
 
 .eval-section {
