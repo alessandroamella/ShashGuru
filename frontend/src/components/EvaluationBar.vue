@@ -19,7 +19,7 @@
               class="eval-text"
               :class="boardOrientation !== 'white' ? 'black-text' : 'white-text'"
             >
-              {{ formatEvaluation() }}
+              {{ formatEvaluation(boardOrientation !== 'white') }}
             </div>
           </div>
 
@@ -36,7 +36,7 @@
               class="eval-text"
               :class="boardOrientation !== 'white' ? 'white-text' : 'black-text'"
             >
-              {{ formatEvaluation() }}
+              {{ formatEvaluation(boardOrientation === 'white') }}
             </div>
           </div>
         </template>
@@ -201,7 +201,7 @@ const blackPercentage = computed(() => 100 - whitePercentage.value);
 
 const lastValidEvaluation = ref("");
 
-const formatEvaluation = () => {
+const formatEvaluation = (isForBlack = false) => {
 	// If we're loading a new evaluation, keep showing the previous evaluation text unchanged
 	if (loading.value && evaluation.value) {
 		return lastValidEvaluation.value;
@@ -223,12 +223,18 @@ const formatEvaluation = () => {
 	// Mostrare il testo della percentuale
 	else if (evaluation.value.winprob !== null) {
 		let winProb = evaluation.value.winprob;
-		// Visualizziamo la % di vittoria di chi sta vincendo o del bianco?
-		// Convenzione barre: mostrare il valore assoluto per il bianco o relativo.
-		// Qui mostriamo la % del Bianco per coerenza con la barra.
+
+		// Normalize to White's perspective first
+		// (If it was Black to move, the value represents Black's win prob, so invert for White)
 		if (!evaluationSideToMove.value) {
 			winProb = 100 - winProb;
 		}
+
+		// FIX: If we are rendering the text for the Black section, invert the percentage
+		if (isForBlack) {
+			winProb = 100 - winProb;
+		}
+
 		return `${Math.round(winProb)}%`;
 	} else if (evaluation.value.score !== null) {
 		let score = evaluation.value.score;
