@@ -342,7 +342,7 @@ onUnmounted(() => {
       </div>
 
       <div class="board-with-eval">
-        <div class="evaluation-panel">
+        <div class="evaluation-panel" v-if="false">
           <EvaluationBar
             :fen="fen"
             :depth="evaluationDepth"
