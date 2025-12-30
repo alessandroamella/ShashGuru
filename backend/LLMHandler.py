@@ -778,9 +778,8 @@ def stream_LLM(
 
         # Add stream specific params
         request_kwargs["stream"] = True
-        request_kwargs["max_completion_tokens"] = (
-            4096  # Higher limit for thinking models
-        )
+        # Higher limit for thinking models
+        request_kwargs["max_completion_tokens"] = 4096 * 8
 
         output = client.chat.completions.create(messages=messages, **request_kwargs)
 
