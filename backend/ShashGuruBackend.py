@@ -448,12 +448,12 @@ def analysis_styles():
         return jsonify({"error": str(e)}), 500
 
 
-# Logica live
+# Live logic
 LIVE_KEY_FEN = "live:fen"
 LIVE_KEY_CONTROLLER = "live:controller"
 LIVE_KEY_LAST_UPDATE = "live:last_update"
 LIVE_KEY_CHAT = "live:chat"
-SESSION_TIMEOUT = 30  # Secondi dopo i quali il controller perde il posto se inattivo
+SESSION_TIMEOUT = 300  # Seconds after which the controller loses its place if inactive
 
 
 @app.route("/live/state", methods=["GET"])
