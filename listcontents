@@ -1,3 +1,3 @@
 #!/bin/bash
 
-listcontents -e COPYING .vite/deps config/grafana.json config/logging.conf config/nginx.conf.d/default.conf config/nginx.conf.d/shashguru.conf config/redis.conf docker-compose.dev.yml docker-compose.prod.yml docker-compose.yml frontend/.env frontend/vite.config.js frontend/package-lock.json frontend/public/favicon.ico
+listcontents -e COPYING .vite/deps config/grafana.json config/logging.conf config/nginx.conf.d/default.conf config/nginx.conf.d/shashguru.conf config/redis.conf docker-compose-ai-pc.yml docker-compose-ov.yml docker-compose-vllm-mate.yml docker-compose-vllm.yml frontend/.env frontend/vite.config.js frontend/package-lock.json frontend/public/favicon.ico
