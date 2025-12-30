@@ -157,13 +157,19 @@ def metrics():
     return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 
+@app.route("/llm/models", methods=["GET"])
+def get_models():
+    """Returns list of supported LLMs."""
+    return jsonify({"models": LLMHandler.get_available_models()})
+
+
 @app.route("/analysis", methods=["GET", "POST"])
 @track_metrics("analysis")
 def analysis():
     fen = request.json.get("fen")
-    print("Received analysis request for:", fen)
     depth = request.json.get("depth", 20)
     style = request.json.get("style", "default")
+    model_name = request.json.get("model")  # Get selected model
 
     # Request 3 lines for multiple move analysis for complex personas
     lines = 1 if style == "default" else 3
@@ -181,9 +187,10 @@ def analysis():
             {"prompt": prompt}
         ) + "\n[PROMPT_END]\n"  # sends single chunk with prompt, to save it as context for responses
         yield "[START_STREAM]\n"  # optional: delimiter for stream start
+        # Pass model_name to stream_LLM
         for token in LLMHandler.stream_LLM(
-            prompt, model, style=style
-        ):  # <-- stream here
+            prompt, model, style=style, model_name=model_name
+        ):
             yield token
         yield "\n[END_STREAM]"  # optional: delimiter for stream end
 
@@ -197,13 +204,18 @@ def response():
     if chat_history is None:
         chat_history = []
     new_question = chat_history[-1].get("content")
-    style = request.args.get("style", "default")  # Get style from query parameters
-    print("Received question:", new_question)
+    style = request.args.get("style", "default")
+    model_name = request.args.get("model")  # Get model from query param
 
     def generate():
         yield "[START_STREAM]\n"
+        # Pass model_name to stream_LLM
         for token in LLMHandler.stream_LLM(
-            new_question, model, chat_history=chat_history[:-1], style=style
+            new_question,
+            model,
+            chat_history=chat_history[:-1],
+            style=style,
+            model_name=model_name,
         ):
             yield token
         yield "\n[END_STREAM]"

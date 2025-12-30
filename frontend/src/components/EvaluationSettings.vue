@@ -25,6 +25,21 @@
       />
     </div>
 
+    <!-- LLM Model Selection (New) -->
+    <div v-if="localEnabled" class="setting-item">
+      <label for="model-selector" class="setting-label">AI Model</label>
+      <select
+        id="model-selector"
+        v-model="currentModel"
+        class="form-select form-select-sm bg-dark text-white border-secondary mb-2"
+        @change="updateModel"
+      >
+        <option v-for="model in availableModels" :key="model.id" :value="model.id">
+          {{ model.name }}
+        </option>
+      </select>
+    </div>
+
     <div v-if="localEnabled" class="setting-item">
       <div class="setting-toggle">
         <label class="setting-label">Show Best Move Arrow</label>
@@ -59,7 +74,8 @@
 </template>
 
 <script setup>
-import { ref, watch, onUnmounted } from 'vue'
+import { ref, watch, onUnmounted, onMounted } from 'vue'
+import { useChessStore } from '@/stores/useChessStore'
 import {
   DEFAULT_DEPTH,
   DEFAULT_EVALUATION_ENABLED,
@@ -96,6 +112,32 @@ const emit = defineEmits([
   'update:showBestMove',
   'update:showLines',
 ])
+
+const chessStore = useChessStore()
+const availableModels = ref([])
+const currentModel = ref(chessStore.selectedModel || '')
+const server_url = import.meta.env.BASE_URL + 'backend'
+
+// Fetch models
+onMounted(async () => {
+  try {
+    const res = await fetch(`${server_url}/llm/models`)
+    const data = await res.json()
+    availableModels.value = data.models
+
+    // Set default if store is empty
+    if (!currentModel.value && availableModels.value.length > 0) {
+      currentModel.value = availableModels.value[0].id
+      chessStore.setSelectedModel(currentModel.value)
+    }
+  } catch (e) {
+    console.error('Failed to fetch models', e)
+  }
+})
+
+const updateModel = () => {
+  chessStore.setSelectedModel(currentModel.value)
+}
 
 const localDepth = ref(props.depth)
 const localEnabled = ref(props.enabled)
@@ -313,5 +355,16 @@ input:checked + .slider:before {
   border-color: #cdd26a;
   color: #cdd26a;
   background-color: rgba(205, 210, 106, 0.1);
+}
+
+.form-select {
+  background-color: #444 !important;
+  border: none;
+  color: #f2f2f2;
+  font-size: 13px;
+}
+.form-select:focus {
+  box-shadow: 0 0 0 0.25rem rgba(205, 210, 106, 0.25);
+  border-color: #aaa23a;
 }
 </style>

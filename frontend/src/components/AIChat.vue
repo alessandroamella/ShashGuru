@@ -1,11 +1,23 @@
 <script setup>
-import { ref, watch, nextTick, onMounted } from 'vue'
+import { ref, watch, nextTick, onMounted, computed } from 'vue'
 import { validateFen } from 'fentastic'
 import MarkdownIt from 'markdown-it'
+import { useChessStore } from '@/stores/useChessStore' // Import store
+
+const chessStore = useChessStore()
 
 const remote_server_url = import.meta.env.BASE_URL + 'backend'
 const local_server_url = 'http://localhost:5000'
 const starting_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+
+// Computed for current model to send in requests
+const selectedModelId = computed(() => chessStore.selectedModel)
+const availableModels = ref([])
+const selectedModelName = computed(() => {
+  const model = availableModels.value.find((m) => m.id === chessStore.selectedModel)
+  return model ? model.name : null
+})
+
 //emits
 const emit = defineEmits(['loadingChat'])
 
@@ -21,7 +33,7 @@ const props = defineProps({
   },
 })
 // Markdown
-const md = new MarkdownIt()
+const md = new MarkdownIt({ html: true })
 
 // Reactive state
 const userInput = ref('')
@@ -120,13 +132,20 @@ async function sendMessageSTREAMED() {
   scrollToBottom()
 
   try {
-    const response = await fetch(server_url.value + `/response?style=${selectedStyle.value}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    // Add &model=... to query
+    const modelParam = selectedModelId.value
+      ? `&model=${encodeURIComponent(selectedModelId.value)}`
+      : ''
+    const response = await fetch(
+      server_url.value + `/response?style=${selectedStyle.value}${modelParam}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messages.value),
       },
-      body: JSON.stringify(messages.value),
-    })
+    )
 
     if (!response.ok || !response.body) {
       throw new Error('Network response was not ok')
@@ -197,6 +216,7 @@ async function startAnalysisSTREAMED() {
           fen: fenToAnalyse,
           depth: props.depth,
           style: selectedStyle.value,
+          model: selectedModelId.value, // Pass model here
         }),
       })
 
@@ -296,8 +316,56 @@ watch(
     }
   },
 )
+// Custom Markdown Renderer to handle <think> tags or raw text
 function renderedMarkdown(content) {
-  return md.render(content)
+  if (!content) return ''
+
+  // Split content by <think> tags to process markdown separately
+  const thinkRegex = /<think>([\s\S]*?)(?:<\/think>|$)/gi
+  const matches = []
+  let match
+
+  // Find all <think> blocks and their positions
+  while ((match = thinkRegex.exec(content)) !== null) {
+    matches.push({
+      fullMatch: match[0],
+      thinkContent: match[1],
+      index: match.index
+    })
+  }
+
+  if (matches.length === 0) {
+    // No <think> tags, just render markdown normally
+    return md.render(content)
+  }
+
+  // Process content with <think> tags
+  let lastIndex = 0
+  let processedParts = []
+
+  for (const match of matches) {
+    // Add markdown-rendered content before this <think> tag
+    if (match.index > lastIndex) {
+      const beforeThink = content.substring(lastIndex, match.index)
+      processedParts.push(md.render(beforeThink))
+    }
+
+    // Add the <think> content with markdown rendered inside
+    const renderedThinkContent = md.render(match.thinkContent)
+    processedParts.push(
+      `<details class="thinking-details" open><summary>Thinking Process</summary><div class="thinking-content">${renderedThinkContent}</div></details>`
+    )
+
+    lastIndex = match.index + match.fullMatch.length
+  }
+
+  // Add any remaining content after the last <think> tag
+  if (lastIndex < content.length) {
+    const afterThink = content.substring(lastIndex)
+    processedParts.push(md.render(afterThink))
+  }
+
+  return processedParts.join('')
 }
 
 function scrollToBottom() {
@@ -344,6 +412,14 @@ onMounted(async () => {
   isClipboardCopyingAvailable.value = navigator.clipboard.writeText ? true : false
   await checkLocalBackendAvailability()
   await fetchAnalysisStyles()
+  // Fetch available models
+  try {
+    const res = await fetch(`${server_url.value}/llm/models`)
+    const data = await res.json()
+    availableModels.value = data.models
+  } catch (e) {
+    console.error('Failed to fetch models in AIChat', e)
+  }
 })
 </script>
 
@@ -364,6 +440,10 @@ onMounted(async () => {
             class="text-break text-start message"
             v-html="renderedMarkdown(message.content)"
           ></div>
+          <!-- Model name display -->
+          <div v-if="selectedModelName" class="model-name-badge mt-2">
+            <small>{{ selectedModelName }}</small>
+          </div>
           <!-- Action buttons (copy / retry) -->
           <div v-if="!loading && isClipboardCopyingAvailable" class="d-flex message-actions">
             <span
@@ -511,8 +591,13 @@ onMounted(async () => {
   background: #323232 !important;
 }
 
-.message > * {
+.message > *:not(.thinking-details) {
   margin: 0% !important;
+}
+
+.message > .thinking-details {
+  margin-top: 0 !important;
+  margin-bottom: 16px !important;
 }
 
 .spinner-border,
@@ -637,5 +722,50 @@ h6 {
   font-weight: 600;
   text-align: center;
   margin: 0;
+}
+
+.model-name-badge {
+  display: inline-block;
+  background-color: #2e2e2e;
+  border: 1px solid #444;
+  border-radius: 12px;
+  padding: 4px 10px;
+  color: #aaa23a;
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.8;
+}
+</style>
+
+<style>
+/* Add global style for the thinking box injected via v-html */
+.thinking-details {
+  background-color: #262421;
+  border: 1px solid #444;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 0.9em;
+  margin-top: 10px;
+}
+
+.thinking-details summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: bold;
+  color: #aaa23a;
+  background-color: #1a1916;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  user-select: none;
+}
+
+.thinking-details summary:hover {
+  background-color: #2f2d2a;
+}
+
+.thinking-content {
+  padding: 10px 10px 0 10px;
+  color: #bbb;
+  border-top: 1px solid #444;
 }
 </style>

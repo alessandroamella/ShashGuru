@@ -1,3 +1,3 @@
 #!/bin/bash
 
-docker compose -f docker-compose-ai-pc.yml up
+docker compose -f docker-compose-cloud.yml up --build
