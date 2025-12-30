@@ -38,3 +38,6 @@ COPYING
 
 # Secret environment variables
 .env
+
+# Google API usage tracking
+backend/google_api_usage.json

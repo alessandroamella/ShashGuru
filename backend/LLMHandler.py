@@ -26,9 +26,15 @@ from fenManipulation import fen_explainer
 import chess
 import os
 
+# Import rate limiter for Google API
+from google_rate_limiter import GoogleRateLimiter, RateLimitExceeded
+
 # Default configuration
 DEFAULT_MODEL = os.environ.get("DEFAULT_LLM_MODEL", "llama-3.1-8b-instant")
 DEFAULT_LLM_API_KEY = os.environ.get("DEFAULT_LLM_API_KEY", "unused")
+
+# Initialize Google rate limiter
+google_rate_limiter = GoogleRateLimiter()
 
 # Provider-specific configuration
 MODEL_PROVIDERS = {
@@ -623,6 +629,11 @@ def query_LLM(
 
     # Check if this is a Gemini model - use native SDK
     if is_gemini_model(model_name):
+        # Check rate limit before making the call
+        if not google_rate_limiter.can_make_call():
+            stats = google_rate_limiter.get_usage_stats()
+            raise RateLimitExceeded(stats)
+
         client = get_gemini_client(model_name)
 
         # Convert chat history to Gemini format
@@ -649,6 +660,9 @@ def query_LLM(
         response = client.models.generate_content(
             model=model_name or DEFAULT_MODEL, contents=contents, config=config
         )
+
+        # Increment call counter after successful call
+        google_rate_limiter.increment_call()
 
         analysis = response.text
     else:
@@ -687,6 +701,11 @@ def stream_LLM(
 
     # Check if this is a Gemini model - use native SDK
     if is_gemini_model(model_name):
+        # Check rate limit before making the call
+        if not google_rate_limiter.can_make_call():
+            stats = google_rate_limiter.get_usage_stats()
+            raise RateLimitExceeded(stats)
+
         client = get_gemini_client(model_name)
 
         # Convert chat history to Gemini format
@@ -712,6 +731,9 @@ def stream_LLM(
         response_stream = client.models.generate_content_stream(
             model=model_name or DEFAULT_MODEL, contents=contents, config=config
         )
+
+        # Increment call counter after initiating the stream
+        google_rate_limiter.increment_call()
 
         thought_mode = False  # Track if we are currently inside a thought block
 
@@ -782,6 +804,11 @@ Only answer with a "yes" or a "no".
 
     # Check if this is a Gemini model - use native SDK
     if is_gemini_model(model_name):
+        # Check rate limit before making the call
+        if not google_rate_limiter.can_make_call():
+            stats = google_rate_limiter.get_usage_stats()
+            raise RateLimitExceeded(stats)
+
         client = get_gemini_client(model_name)
 
         config = types.GenerateContentConfig(
@@ -794,6 +821,9 @@ Only answer with a "yes" or a "no".
         response = client.models.generate_content(
             model=model_name or DEFAULT_MODEL, contents=user_message, config=config
         )
+
+        # Increment call counter after successful call
+        google_rate_limiter.increment_call()
 
         response_text = response.text.strip().lower()
     else:

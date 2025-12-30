@@ -40,6 +40,7 @@ services:
       - GROQ_API_KEY=${GROQ_API_KEY}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - DEFAULT_LLM_MODEL=${DEFAULT_LLM_MODEL:-llama-3.1-8b-instant}
+      - GOOGLE_AI_MAX_MONTHLY_CALLS=${GOOGLE_AI_MAX_MONTHLY_CALLS:-100}
       - USE_CLOUD_AI=true
       # Chess engine settings
       - ENGINE_POOL_SIZE=${ENGINE_POOL_SIZE:-4}
