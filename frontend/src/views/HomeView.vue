@@ -112,11 +112,12 @@ async function leaveGame() {
 // Ensure claimController is available (it likely already is in your code)
 async function claimController() {
   const serverUrl = import.meta.env.BASE_URL + 'backend'
-  await fetch(`${serverUrl}/live/claim`, {
+  const res = await fetch(`${serverUrl}/live/claim`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ user_id: myUserId.value }),
   })
+  return await res.json()
 }
 
 async function pushUpdate(newFen, newChat = null) {
@@ -471,10 +472,18 @@ function switchTab(tab) {
   activeTab.value = tab
 }
 
-function updateFen(newFen) {
+async function updateFen(newFen) {
   fen.value = newFen
   if (isController.value) {
     pushUpdate(newFen, null)
+  } else if (liveState.value.is_free) {
+    // Auto-claim if free
+    const res = await claimController()
+    if (res.success) {
+      liveState.value.controller_id = myUserId.value
+      liveState.value.is_free = false
+      pushUpdate(newFen, null)
+    }
   }
 }
 
@@ -687,10 +696,7 @@ watch(selectedMoveIndex, async () => {
 
 <template>
   <!-- Control Bar -->
-  <div
-    class="d-flex justify-content-center w-100 p-2 text-white fw-bold align-items-center"
-    :class="statusClass"
-  >
+  <div class="d-flex justify-content-center w-100 p-2 text-white fw-bold align-items-center" :class="statusClass">
     <!-- Case 1: I am the player -->
     <div v-if="isController" class="d-flex align-items-center gap-3">
       <span>You are playing (Controller)</span>
@@ -718,40 +724,26 @@ watch(selectedMoveIndex, async () => {
 
   <div id="chessboard" class="d-flex flex-column flex-lg-row justify-content-evenly m-2 m-lg-5">
     <div class="flex-item mx-0 p-3 pt-0" :class="{ loading: isLoading }">
-      <ChessBoard
-        :fenProp="fen"
-        :viewOnly="!isController"
-        @updateFen="updateFen"
-        @setMovesFromPGN="setMovesFromPGN"
-        @moveAdded="handleMoveAdded"
-        @engineEvaluationUpdate="handleEngineEvaluationUpdate"
-        @showLinesUpdate="handleShowLinesUpdate"
-        @evaluationLoadingUpdate="handleEvaluationLoadingUpdate"
-        @depthUpdate="handleDepthUpdate"
-      />
+      <ChessBoard :fenProp="fen" :viewOnly="!isController" @updateFen="updateFen" @setMovesFromPGN="setMovesFromPGN"
+        @moveAdded="handleMoveAdded" @engineEvaluationUpdate="handleEngineEvaluationUpdate"
+        @showLinesUpdate="handleShowLinesUpdate" @evaluationLoadingUpdate="handleEvaluationLoadingUpdate"
+        @depthUpdate="handleDepthUpdate" />
     </div>
 
     <div class="right-panel d-flex flex-column flex-lg-row flex-fill mx-2 mx-lg-5 gap-3">
       <!-- TABBED PANEL -->
-      <div
-        id="tabbed-panel"
-        class="tabbed-section rounded-4 d-flex flex-column rounded-top-4 overflow-hidden"
-      >
+      <div id="tabbed-panel" class="tabbed-section rounded-4 d-flex flex-column rounded-top-4 overflow-hidden">
         <!-- TAB NAVIGATION -->
         <div class="tab-navigation d-flex">
-          <button
-            class="tab-button flex-fill py-2 px-3 border-0 fw-bold"
+          <button class="tab-button flex-fill py-2 px-3 border-0 fw-bold"
             :class="{ 'tab-active': activeTab === 'moves', 'tab-inactive': activeTab !== 'moves' }"
-            @click="switchTab('moves')"
-          >
+            @click="switchTab('moves')">
             <i class="material-icons me-1" style="font-size: 18px">sports_esports</i>
             Moves
           </button>
-          <button
-            class="tab-button flex-fill py-2 px-3 border-0 fw-bold"
+          <button class="tab-button flex-fill py-2 px-3 border-0 fw-bold"
             :class="{ 'tab-active': activeTab === 'chat', 'tab-inactive': activeTab !== 'chat' }"
-            @click="switchTab('chat')"
-          >
+            @click="switchTab('chat')">
             <i class="material-icons me-1" style="font-size: 18px">chat</i>
             AI Chat
           </button>
@@ -762,16 +754,12 @@ watch(selectedMoveIndex, async () => {
           <!-- MOVES TAB -->
           <div class="tab-pane flex-fill d-flex flex-column overflow-hidden">
             <!-- PLAYER INFO -->
-            <div
-              v-if="hasPlayerInfo"
-              id="playerInfo"
-              class="d-flex align-items-center justify-content-between p-3 text-light"
-              style="
+            <div v-if="hasPlayerInfo" id="playerInfo"
+              class="d-flex align-items-center justify-content-between p-3 text-light" style="
                 background-color: #33312e;
                 border-bottom: 1px solid #ffffff1e;
                 max-height: 100px;
-              "
-            >
+              ">
               <!-- White Player -->
               <div class="text-truncate text-center" style="flex: 1; padding-right: 1rem">
                 <div class="fw-bold fs-6">White:</div>
@@ -792,73 +780,45 @@ watch(selectedMoveIndex, async () => {
 
             <!-- MOVES -->
             <div v-if="activeTab === 'moves'" class="flex-fill">
-              <div
-                id="moveHeader"
-                class="d-flex justify-content-center align-items-center py-1 shrink-0"
-              >
+              <div id="moveHeader" class="d-flex justify-content-center align-items-center py-1 shrink-0">
                 <div>
-                  <button
-                    class="btn btn-sm text-white material-icons"
-                    :disabled="!currentNode || !currentNode.parent"
-                    @click="backStart"
-                  >
+                  <button class="btn btn-sm text-white material-icons" :disabled="!currentNode || !currentNode.parent"
+                    @click="backStart">
                     first_page
                   </button>
                 </div>
                 <div>
-                  <button
-                    class="btn btn-sm text-white material-icons"
-                    :disabled="!currentNode || !currentNode.parent"
-                    @click="backOneMove"
-                  >
+                  <button class="btn btn-sm text-white material-icons" :disabled="!currentNode || !currentNode.parent"
+                    @click="backOneMove">
                     arrow_back
                   </button>
                 </div>
                 <span class="fs-6 fw-bold text-center mx-2">
-                  <span v-if="isAnalysisMode" class="badge bg-warning text-dark ms-1"
-                    >Analysis</span
-                  >
+                  <span v-if="isAnalysisMode" class="badge bg-warning text-dark ms-1">Analysis</span>
                 </span>
                 <div>
-                  <button
-                    class="btn btn-sm text-white material-icons"
-                    :disabled="!currentNode || !currentNode.mainLine"
-                    @click="forwardOneMove"
-                  >
+                  <button class="btn btn-sm text-white material-icons" :disabled="!currentNode || !currentNode.mainLine"
+                    @click="forwardOneMove">
                     arrow_forward
                   </button>
                 </div>
                 <div>
-                  <button
-                    class="btn btn-sm text-white material-icons"
-                    :disabled="!currentNode || !currentNode.mainLine"
-                    @click="forwardEnd"
-                  >
+                  <button class="btn btn-sm text-white material-icons" :disabled="!currentNode || !currentNode.mainLine"
+                    @click="forwardEnd">
                     last_page
                   </button>
                 </div>
                 <div class="ms-1">
-                  <button
-                    class="btn btn-sm"
-                    :class="isAnalysisMode ? 'btn-warning' : 'btn-outline-light'"
-                    @click="toggleAnalysisMode"
-                    title="Toggle Analysis Mode (Shift+Enter)"
-                  >
+                  <button class="btn btn-sm" :class="isAnalysisMode ? 'btn-warning' : 'btn-outline-light'"
+                    @click="toggleAnalysisMode" title="Toggle Analysis Mode (Shift+Enter)">
                     <i class="material-icons" style="font-size: 18px">analytics</i>
                   </button>
                 </div>
                 <div class="ms-1">
-                  <button
-                    class="btn btn-sm btn-outline-info"
-                    @click="fetchEvaluationsForMoves"
-                    :disabled="isLoadingEvaluations"
-                    title="Fetch Evaluations"
-                  >
-                    <span
-                      v-if="isLoadingEvaluations"
-                      class="spinner-border spinner-border-sm me-1"
-                      role="status"
-                    ></span>
+                  <button class="btn btn-sm btn-outline-info" @click="fetchEvaluationsForMoves"
+                    :disabled="isLoadingEvaluations" title="Fetch Evaluations">
+                    <span v-if="isLoadingEvaluations" class="spinner-border spinner-border-sm me-1"
+                      role="status"></span>
                     <i class="material-icons" style="font-size: 18px">assessment</i>
                   </button>
                 </div>
@@ -866,41 +826,25 @@ watch(selectedMoveIndex, async () => {
               <div class="flex-fill overflow-auto">
                 <div id="moves" class="px-3 pt-3 pb-2 h-100">
                   <!-- Engine Lines Display -->
-                  <EngineLines
-                    v-if="
-                      (engineEvaluation &&
-                        engineEvaluation.lines &&
-                        engineEvaluation.lines.length > 0) ||
-                      isEngineEvaluationLoading
-                    "
-                    :lines="engineEvaluation.lines"
-                    :maxLines="showLines"
-                    :depth="engineEvaluation.depth"
-                    :currentFen="currentNode?.fen || ''"
-                    :loading="isEngineEvaluationLoading"
-                    @move-clicked="handleEngineLineMove"
-                    class="mb-3"
-                  />
+                  <EngineLines v-if="
+                    (engineEvaluation &&
+                      engineEvaluation.lines &&
+                      engineEvaluation.lines.length > 0) ||
+                    isEngineEvaluationLoading
+                  " :lines="engineEvaluation.lines" :maxLines="showLines" :depth="engineEvaluation.depth"
+                    :currentFen="currentNode?.fen || ''" :loading="isEngineEvaluationLoading"
+                    @move-clicked="handleEngineLineMove" class="mb-3" />
                   <div v-if="hasMoves" class="move-tree shadow">
                     <div class="moves-header rounded-top">
                       <span class="header-text fs-6">Moves</span>
                     </div>
                     <div class="moves-body ps-2 rounded-bottom">
-                      <MoveTreeDisplay
-                        :node="moveTree"
-                        :currentNode="currentNode"
-                        :selectedPath="selectedPath"
-                        :engineEvaluation="engineEvaluation"
-                        :showLines="showLines"
-                        :isEvaluationLoading="isEngineEvaluationLoading"
-                        @nodeClicked="navigateToNode"
-                        @addMove="addMove"
-                        @setShashinType="setShashinType"
-                        @setMoveEvaluation="setMoveEvaluation"
-                        @promoteVariation="promoteVariation"
-                        @deleteMove="deleteMove"
-                        :isAnalysisMode="isAnalysisMode"
-                      />
+                      <MoveTreeDisplay :node="moveTree" :currentNode="currentNode" :selectedPath="selectedPath"
+                        :engineEvaluation="engineEvaluation" :showLines="showLines"
+                        :isEvaluationLoading="isEngineEvaluationLoading" @nodeClicked="navigateToNode"
+                        @addMove="addMove" @setShashinType="setShashinType" @setMoveEvaluation="setMoveEvaluation"
+                        @promoteVariation="promoteVariation" @deleteMove="deleteMove"
+                        :isAnalysisMode="isAnalysisMode" />
                     </div>
                   </div>
                   <div v-if="!hasMoves && !isAnalysisMode" class="text-secondary text-center">
@@ -915,11 +859,8 @@ watch(selectedMoveIndex, async () => {
             </div>
 
             <!-- CHAT TAB -->
-            <div
-              v-if="activeTab === 'chat'"
-              id="chat-view"
-              class="tab-pane chat-section flex-fill rounded-4 d-flex flex-column"
-            >
+            <div v-if="activeTab === 'chat'" id="chat-view"
+              class="tab-pane chat-section flex-fill rounded-4 d-flex flex-column">
               <AIChat :fen="fen" :depth="depth" @loadingChat="handleLoadingChat" />
             </div>
           </div>
@@ -1031,7 +972,7 @@ watch(selectedMoveIndex, async () => {
   height: 50%;
 }
 
-.selected > .colorize {
+.selected>.colorize {
   background-color: #cdd26a;
   color: black;
   border-radius: 4px;
