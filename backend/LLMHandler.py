@@ -15,6 +15,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from openai import OpenAI
+from google import genai
+from google.genai import types
 import logging as log
 import warnings
 import math
@@ -24,18 +26,55 @@ from fenManipulation import fen_explainer
 import chess
 import os
 
-# Don't hard-code the model name, allow override via env variable
-LLM_MODEL = os.environ.get("LLM_MODEL", "meta-llama/Llama-3.1-8B-Instruct")
-LLM_API_KEY = os.environ.get("LLM_API_KEY", "unused")
+# Default configuration
+DEFAULT_MODEL = os.environ.get("DEFAULT_LLM_MODEL", "llama-3.1-8b-instant")
+DEFAULT_LLM_API_KEY = os.environ.get("DEFAULT_LLM_API_KEY", "unused")
+
+# Provider-specific configuration
+MODEL_PROVIDERS = {
+    "groq": {
+        "base_url": "https://api.groq.com/openai/v1",
+        "api_key_env": "GROQ_API_KEY",
+    },
+    # Google models now use native Gemini SDK (not OpenAI compatibility)
+    "google": {
+        "base_url": None,  # Not used - native SDK
+        "api_key_env": "GOOGLE_API_KEY",
+    },
+}
+
+# Supported models list - You can expand this
+SUPPORTED_MODELS = [
+    {
+        "id": "llama-3.1-8b-instant",
+        "name": "Llama 3.1 8B (Groq)",
+        "provider": "groq",
+    },
+    {
+        "id": "llama-3.3-70b-versatile",
+        "name": "Llama 3.3 70B (Groq)",
+        "provider": "groq",
+    },
+    {
+        "id": "gemini-2.5-flash",
+        "name": "Gemini 2.5 Flash",
+        "provider": "google",
+    },
+    {
+        "id": "gemini-3-flash-preview",
+        "name": "Gemini 3 Flash",
+        "provider": "google",
+    },
+    {"id": "gemini-3-pro-preview", "name": "Gemini 3 Pro", "provider": "google"},
+]
 
 # Log warning if API key is not set
-if LLM_API_KEY == "unused":
-    log.warning("LLM_API_KEY is not set.")
-    if os.environ.get("USE_CLOUD_AI", "false").lower() == "true":
-        raise ValueError("LLM_API_KEY must be set when USE_CLOUD_AI is true.")
+if (
+    DEFAULT_LLM_API_KEY == "unused"
+    and os.environ.get("USE_CLOUD_AI", "false").lower() == "false"
+):
+    log.warning("DEFAULT_LLM_API_KEY is not set.")
 
-
-quantization = True
 
 SYSTEM_MESSAGES = {
     "default": """
@@ -82,13 +121,115 @@ def get_analysis_styles():
     ]
 
 
-def load_LLM_model():
+def get_available_models():
+    """Returns the list of supported models."""
+    return SUPPORTED_MODELS
 
+
+def is_gemini_model(model_name):
+    """
+    Check if the given model name is a Gemini model that should use the native SDK.
+
+    Args:
+        model_name: The model ID to check
+
+    Returns:
+        bool: True if it's a Gemini model
+    """
+    if not model_name:
+        return False
+    return "gemini" in model_name.lower()
+
+
+def get_gemini_client(model_name=None):
+    """
+    Initialize and return a Gemini client using the native Google SDK.
+
+    Args:
+        model_name: The model ID (not used for client init, but kept for consistency)
+
+    Returns:
+        genai.Client: Initialized Gemini client
+    """
+    api_key = os.environ.get("GOOGLE_API_KEY", "unused")
+    if api_key == "unused":
+        log.warning("GOOGLE_API_KEY not set for Gemini models")
+
+    # The genai.Client() will automatically use GOOGLE_API_KEY from environment
+    client = genai.Client(api_key=api_key)
+    log.info(f"Initialized Gemini client for model {model_name or 'default'}")
+    return client
+
+
+def get_model_config(model_name=None):
+    """
+    Get the configuration (base_url, api_key) for a specific model.
+    Falls back to environment variable DEFAULT_AI_BASE_URL if set (for local models).
+
+    Args:
+        model_name: The model ID to get config for. If None, uses DEFAULT_MODEL.
+
+    Returns:
+        tuple: (base_url, api_key)
+    """
+    if model_name is None:
+        log.warning(f"No model_name provided, using DEFAULT_MODEL: {DEFAULT_MODEL}")
+        model_name = DEFAULT_MODEL
+
+    # Check if DEFAULT_AI_BASE_URL is set (for local/custom endpoints)
+    env_base_url = os.environ.get("DEFAULT_AI_BASE_URL")
+    if env_base_url:
+        log.info(f"Using custom AI base URL: {env_base_url}")
+        return env_base_url, DEFAULT_LLM_API_KEY
+
+    # Find the provider for this model
+    provider = None
+    for model in SUPPORTED_MODELS:
+        if model["id"] == model_name:
+            provider = model["provider"]
+            break
+
+    if provider is None:
+        log.warning(
+            f"Model {model_name} not found in SUPPORTED_MODELS, using default provider (groq)"
+        )
+        provider = "groq"
+
+    # Get provider config
+    provider_config = MODEL_PROVIDERS.get(provider)
+    if provider_config is None:
+        raise ValueError(f"Provider {provider} not configured in MODEL_PROVIDERS")
+
+    # Get API key from environment
+    api_key = os.environ.get(provider_config["api_key_env"], "unused")
+    if api_key == "unused":
+        log.warning(
+            f"API key not set for provider {provider} (expected env var: {provider_config['api_key_env']})"
+        )
+
+    return provider_config["base_url"], api_key
+
+
+def load_LLM_model(model_name=None):
+    """
+    Initialize the OpenAI client with the correct base URL and API key for the specified model.
+
+    Args:
+        model_name: The model ID to configure for. If None, uses DEFAULT_MODEL.
+
+    Returns:
+        tuple: (None, OpenAI client instance)
+    """
     # Removing logging
     # transformers.utils.logging.disable_progress_bar()
     warnings.filterwarnings("ignore")
-    base_url = os.environ.get("AI_BASE_URL", "http://frontend:6666/v1")
-    model = OpenAI(base_url=base_url, api_key=LLM_API_KEY)
+
+    base_url, api_key = get_model_config(model_name)
+
+    log.info(
+        f"Initializing LLM client for model {model_name or DEFAULT_MODEL} with base_url: {base_url}"
+    )
+    model = OpenAI(base_url=base_url, api_key=api_key)
     return None, model
 
 
@@ -133,7 +274,7 @@ def __mapWinProb(winprob, side, score=None, mate=None):
     elif 25 <= winprob <= 49:
         return f"{side} is in a defensive position. The opponent has an initiative."
     elif winprob == 50:
-        return f"The position is equal. Both sides are evenly matched, with no evident advantage."
+        return "The position is equal. Both sides are evenly matched, with no evident advantage."
     elif 51 <= winprob <= 75:
         return f"{side} has initiative: by applying pressure and it can achieve an edge with active moves and forcing ideas."
     elif 76 <= winprob <= 79:
@@ -233,21 +374,37 @@ def analyze_position_context(fen, board):
 
     # Castling Rights
     w_rights = []
-    if board.has_kingside_castling_rights(chess.WHITE): w_rights.append("Kingside")
-    if board.has_queenside_castling_rights(chess.WHITE): w_rights.append("Queenside")
-    if w_rights: context.append(f"White castling rights: {'/'.join(w_rights)}")
-    
+    if board.has_kingside_castling_rights(chess.WHITE):
+        w_rights.append("Kingside")
+    if board.has_queenside_castling_rights(chess.WHITE):
+        w_rights.append("Queenside")
+    if w_rights:
+        context.append(f"White castling rights: {'/'.join(w_rights)}")
+
     b_rights = []
-    if board.has_kingside_castling_rights(chess.BLACK): b_rights.append("Kingside")
-    if board.has_queenside_castling_rights(chess.BLACK): b_rights.append("Queenside")
-    if b_rights: context.append(f"Black castling rights: {'/'.join(b_rights)}")
+    if board.has_kingside_castling_rights(chess.BLACK):
+        b_rights.append("Kingside")
+    if board.has_queenside_castling_rights(chess.BLACK):
+        b_rights.append("Queenside")
+    if b_rights:
+        context.append(f"Black castling rights: {'/'.join(b_rights)}")
 
     # Center Occupation
     center_sqs = [chess.E4, chess.D4, chess.E5, chess.D5]
-    w_center = sum(1 for sq in center_sqs if board.piece_at(sq) and board.piece_at(sq).color == chess.WHITE)
-    b_center = sum(1 for sq in center_sqs if board.piece_at(sq) and board.piece_at(sq).color == chess.BLACK)
-    if w_center > b_center: context.append("White occupies more center squares")
-    elif b_center > w_center: context.append("Black occupies more center squares")
+    w_center = sum(
+        1
+        for sq in center_sqs
+        if board.piece_at(sq) and board.piece_at(sq).color == chess.WHITE
+    )
+    b_center = sum(
+        1
+        for sq in center_sqs
+        if board.piece_at(sq) and board.piece_at(sq).color == chess.BLACK
+    )
+    if w_center > b_center:
+        context.append("White occupies more center squares")
+    elif b_center > w_center:
+        context.append("Black occupies more center squares")
 
     return "; ".join(context)
 
@@ -414,17 +571,17 @@ def create_prompt_double_engine(fen, engine_analysis):
     human_best_eval = __format_eval(human["top_moves"][0])
 
     bestmove_prompt = f"""I have two engines: one with NNUE, called ShashChess, and another that simulates human thought, called Alexander.
-        ShashChess suggests the best move **{nnue_best}** (in UCI format) {f"with an evaluation of {nnue_best_eval}" if nnue_best_eval is not None else "" }, 
+        ShashChess suggests the best move **{nnue_best}** (in UCI format) {f"with an evaluation of {nnue_best_eval}" if nnue_best_eval is not None else "" },
         while Alexander suggests the best move is **{human_best}** (in UCI format) {f"with an evaluation of {human_best_eval}" if human_best_eval is not None else "" }.
         ShashChess evaluates Alexander's top move with a score of {nnue['eval_human_move']} and Alexander evaluates ShashChess' best move with a score of {human['eval_nnue_move']}.
-        If the engines disagree on the best move, note that ShashChess also suggests these other strong moves: {nnue['top_moves'][1:]}, 
+        If the engines disagree on the best move, note that ShashChess also suggests these other strong moves: {nnue['top_moves'][1:]},
         while Alexander suggests these: {human['top_moves'][1:]}.
-        If either engine considers the other’s top choice among these alternatives, that might imply partial agreement."""
+        If either engine considers the other's top choice among these alternatives, that might imply partial agreement."""
 
     counter_prompt = f"""{"ShashChess expects a reply to his best move of **" + engine_analysis['NNUE'].get('ponder', '') + "**." if engine_analysis['NNUE'].get('ponder') else ""}
         {"Alexander expects a reply to his best move of **" + engine_analysis['HUMAN'].get('ponder', '') + "**." if engine_analysis['HUMAN'].get('ponder') else ""}
-        {"ShashChess also evaluates Alexander’s expected reply with a score of " + str(nnue['eval_human_ponder']) + "." if nnue['eval_human_ponder'] is not None else ""}
-        {"Alexander also evaluates ShashChess’s expected reply with a score of " + str(human['eval_nnue_ponder']) + "." if human['eval_nnue_ponder'] is not None else ""}"""
+        {"ShashChess also evaluates Alexander's expected reply with a score of " + str(nnue['eval_human_ponder']) + "." if nnue['eval_human_ponder'] is not None else ""}
+        {"Alexander also evaluates ShashChess's expected reply with a score of " + str(human['eval_nnue_ponder']) + "." if human['eval_nnue_ponder'] is not None else ""}"""
 
     full_prompt = (
         "I will explain the board situation:\n"
@@ -438,84 +595,225 @@ def create_prompt_double_engine(fen, engine_analysis):
     return full_prompt
 
 
-def query_LLM(
-    prompt, tokenizer, model, chat_history=None, max_history=10, style="default"
-):
+def _get_request_kwargs(model_name):
+    """
+    Prepare extra arguments for specific models (e.g. Gemini Thinking).
+    """
+    kwargs = {
+        "model": model_name if model_name else DEFAULT_MODEL,
+    }
 
-    pipe = lambda messages, max_new_tokens: model.chat.completions.create(
-        model=LLM_MODEL,
-        messages=messages,
-        max_completion_tokens=max_new_tokens,
-    )
+    return kwargs
+
+
+def query_LLM(
+    prompt,
+    tokenizer,
+    model,
+    chat_history=None,
+    max_history=10,
+    style="default",
+    model_name=None,
+):
     if chat_history is None:
         chat_history = []
     chat_history = chat_history[-max_history:]
 
     system_message = SYSTEM_MESSAGES.get(style, SYSTEM_MESSAGES["default"])
 
-    messages = (
-        [{"role": "system", "content": system_message}]
-        + chat_history
-        + [{"role": "user", "content": prompt}]
-    )
-    output = pipe(messages, max_new_tokens=1024)
-    analysis = output.choices[0].message.content
+    # Check if this is a Gemini model - use native SDK
+    if is_gemini_model(model_name):
+        client = get_gemini_client(model_name)
 
+        # Convert chat history to Gemini format
+        # Gemini uses 'contents' with 'parts' structure
+        contents = []
+        for msg in chat_history:
+            role = "model" if msg["role"] == "assistant" else "user"
+            contents.append({"role": role, "parts": [{"text": msg["content"]}]})
+
+        # Add current prompt
+        contents.append({"role": "user", "parts": [{"text": prompt}]})
+
+        gen_config_params = {"system_instruction": system_message}
+
+        # Disable thinking for Gemini 2.x or models that don't support it
+        # You can adjust this condition based on specific model capabilities
+        if model_name and "gemini-2" not in model_name:
+            gen_config_params["thinking_config"] = types.ThinkingConfig(
+                thinking_level="high"
+            )
+
+        config = types.GenerateContentConfig(**gen_config_params)
+
+        response = client.models.generate_content(
+            model=model_name or DEFAULT_MODEL, contents=contents, config=config
+        )
+
+        analysis = response.text
+    else:
+        # Use OpenAI-compatible client for non-Gemini models
+        _, client = load_LLM_model(model_name)
+
+        messages = (
+            [{"role": "system", "content": system_message}]
+            + chat_history
+            + [{"role": "user", "content": prompt}]
+        )
+
+        request_kwargs = _get_request_kwargs(model_name)
+
+        response = client.chat.completions.create(
+            messages=messages, max_completion_tokens=1024, **request_kwargs
+        )
+
+        analysis = response.choices[0].message.content
+
+    # Update chat history
     chat_history.append({"role": "user", "content": prompt})
     chat_history.append({"role": "assistant", "content": analysis})
 
     return analysis, chat_history
 
 
-def stream_LLM(prompt, model, chat_history=None, max_history=10, style="default"):
-    pipe = lambda messages, max_new_tokens: model.chat.completions.create(
-        model=LLM_MODEL,
-        messages=messages,
-        stream=True,
-        max_completion_tokens=1024,
-        temperature=0.0,
-    )
+def stream_LLM(
+    prompt, model, chat_history=None, max_history=10, style="default", model_name=None
+):
     if chat_history is None:
         chat_history = []
     chat_history = chat_history[-max_history:]
 
     system_message = SYSTEM_MESSAGES.get(style, SYSTEM_MESSAGES["default"])
 
-    messages = [
-        {"role": "system", "content": system_message},
-        *chat_history,
-        {"role": "user", "content": prompt},
-    ]
+    # Check if this is a Gemini model - use native SDK
+    if is_gemini_model(model_name):
+        client = get_gemini_client(model_name)
 
-    output = pipe(messages, max_new_tokens=1024)
+        # Convert chat history to Gemini format
+        contents = []
+        for msg in chat_history:
+            role = "model" if msg["role"] == "assistant" else "user"
+            contents.append({"role": role, "parts": [{"text": msg["content"]}]})
 
-    for out in output:
-        if out.choices[0].finish_reason is not None:
-            break
-        delta = out.choices[0].delta.content
-        if delta:
-            yield delta
+        # Add current prompt
+        contents.append({"role": "user", "parts": [{"text": prompt}]})
+
+        gen_config_params = {"system_instruction": system_message}
+
+        # Disable thinking for Gemini 2.x
+        if model_name and "gemini-2" not in model_name:
+            gen_config_params["thinking_config"] = types.ThinkingConfig(
+                thinking_level="high", include_thoughts=True
+            )
+
+        config = types.GenerateContentConfig(**gen_config_params)
+
+        # Use streaming API
+        response_stream = client.models.generate_content_stream(
+            model=model_name or DEFAULT_MODEL, contents=contents, config=config
+        )
+
+        thought_mode = False  # Track if we are currently inside a thought block
+
+        for chunk in response_stream:
+            # Gemini chunks can contain multiple parts (thoughts or text)
+            if not chunk.candidates or not chunk.candidates[0].content.parts:
+                continue
+
+            for part in chunk.candidates[0].content.parts:
+                # 1. Handle Thought Parts
+                if part.thought:
+                    # If we weren't in thought mode, open the tag
+                    if not thought_mode:
+                        yield "<think>"
+                        thought_mode = True
+
+                    yield part.text
+
+                # 2. Handle Answer Parts (part.thought is False, but text exists)
+                elif part.text:
+                    # If we were in thought mode, we must close it now
+                    if thought_mode:
+                        yield "</think>"
+                        thought_mode = False
+
+                    yield part.text
+
+        # Safety: Check if we finished the stream while still inside a thought
+        if thought_mode:
+            yield "</think>"
+    else:
+        # Use OpenAI-compatible client for non-Gemini models
+        _, client = load_LLM_model(model_name)
+
+        messages = (
+            [{"role": "system", "content": system_message}]
+            + chat_history
+            + [{"role": "user", "content": prompt}]
+        )
+
+        request_kwargs = _get_request_kwargs(model_name)
+
+        # Add stream specific params
+        request_kwargs["stream"] = True
+        request_kwargs["max_completion_tokens"] = (
+            4096  # Higher limit for thinking models
+        )
+
+        output = client.chat.completions.create(messages=messages, **request_kwargs)
+
+        for out in output:
+            if out.choices[0].finish_reason is not None:
+                break
+
+            # Standard content
+            delta = out.choices[0].delta.content
+            if delta:
+                yield delta
 
 
-def is_chess_related(question, tokenizer, model):
-    pipe = lambda messages, max_new_tokens: model.chat.completions.create(
-        model=LLM_MODEL,
-        messages=messages,
-        max_completion_tokens=max_new_tokens,
-    )
+def is_chess_related(question, tokenizer, model, model_name=None):
+    system_message = """You are a filtering agent.
+Your job is to decide if the text is chess-related.
+Keep context in mind.
+Only answer with a "yes" or a "no".
+"""
+    user_message = question + "Is this question chess-related?"
 
-    messages = [
-        {
-            "role": "system",
-            "content": """You are a filtering agent.
-            Your job is to decide if the text is chess-related.
-            Keep context in mind.
-            Only answer with a "yes" or a "no".
-            """,
-        },
-        {"role": "user", "content": question + "Is this question chess-related?"},
-    ]
-    output = pipe(messages, max_new_tokens=256)
-    response = output.choices[0].message.content
+    # Check if this is a Gemini model - use native SDK
+    if is_gemini_model(model_name):
+        client = get_gemini_client(model_name)
 
-    return response in ["yes", "yes."]
+        config = types.GenerateContentConfig(
+            system_instruction=system_message,
+            thinking_config=types.ThinkingConfig(
+                thinking_level="minimal"  # Fast filtering
+            ),
+        )
+
+        response = client.models.generate_content(
+            model=model_name or DEFAULT_MODEL, contents=user_message, config=config
+        )
+
+        response_text = response.text.strip().lower()
+    else:
+        # Use OpenAI-compatible client for non-Gemini models
+        _, client = load_LLM_model(model_name)
+
+        messages = [
+            {
+                "role": "system",
+                "content": system_message,
+            },
+            {"role": "user", "content": user_message},
+        ]
+
+        request_kwargs = _get_request_kwargs(model_name)
+
+        output = client.chat.completions.create(
+            messages=messages, max_completion_tokens=256, **request_kwargs
+        )
+
+        response_text = output.choices[0].message.content.strip().lower()
+
+    return response_text in ["yes", "yes."]

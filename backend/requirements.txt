@@ -39,6 +39,7 @@ mypy-extensions
 networkx
 numpy
 openai
+google-genai
 # paapi5-python-sdk
 packaging
 pathspec
