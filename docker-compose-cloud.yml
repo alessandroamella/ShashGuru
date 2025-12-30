@@ -55,6 +55,7 @@ services:
   redis:
     image: redis:7-alpine
     volumes:
+    # TODO: Should we keep data at closing?
       - redis-data:/data
     command: redis-server --appendonly yes --appendfsync everysec
     restart: unless-stopped

@@ -58,13 +58,6 @@ Keep responses focused and concise - avoid lengthy explanations. 3-4 sentences m
 
 For follow-up questions, maintain the same authoritative and educational tone, always grounding responses in sound chess theory while staying brief.
 """,
-    "coach": """
-You are a chess coach helping a student. Do not just give the answer.
-Explain the logic behind the move simply.
-After the explanation, ask the user a simple question related to the position to check their understanding.
-Keep the tone encouraging and educational.
-Be concise: 2-3 sentences plus one short question.
-""",
 }
 
 # Keep backward compatibility
@@ -74,7 +67,6 @@ SYSTEM_MESSAGE = SYSTEM_MESSAGES["default"]
 STYLE_LABELS = {
     "default": "Commentator",
     "grandmaster": "Grandmaster",
-    "coach": "Chess coach",
 }
 
 
@@ -238,6 +230,24 @@ def analyze_position_context(fen, board):
     else:
         context.append("Position: Endgame")
 
+    # Castling Rights
+    w_rights = []
+    if board.has_kingside_castling_rights(chess.WHITE): w_rights.append("Kingside")
+    if board.has_queenside_castling_rights(chess.WHITE): w_rights.append("Queenside")
+    if w_rights: context.append(f"White castling rights: {'/'.join(w_rights)}")
+    
+    b_rights = []
+    if board.has_kingside_castling_rights(chess.BLACK): b_rights.append("Kingside")
+    if board.has_queenside_castling_rights(chess.BLACK): b_rights.append("Queenside")
+    if b_rights: context.append(f"Black castling rights: {'/'.join(b_rights)}")
+
+    # Center Occupation
+    center_sqs = [chess.E4, chess.D4, chess.E5, chess.D5]
+    w_center = sum(1 for sq in center_sqs if board.piece_at(sq) and board.piece_at(sq).color == chess.WHITE)
+    b_center = sum(1 for sq in center_sqs if board.piece_at(sq) and board.piece_at(sq).color == chess.BLACK)
+    if w_center > b_center: context.append("White occupies more center squares")
+    elif b_center > w_center: context.append("Black occupies more center squares")
+
     return "; ".join(context)
 
 
@@ -324,10 +334,6 @@ def create_prompt_single_engine(fen, bestmoves, ponder, style="default"):
         prompt = create_grandmaster_prompt(
             explainedFEN, side, position_context, moves_analysis
         )
-    elif style == "coach":
-        prompt = create_coach_prompt(
-            explainedFEN, side, position_context, moves_analysis
-        )
     else:  # default/commentator
         prompt = create_default_prompt(
             explainedFEN, side, position_context, moves_analysis
@@ -339,19 +345,27 @@ def create_prompt_single_engine(fen, bestmoves, ponder, style="default"):
 
 
 def create_default_prompt(explainedFEN, side, position_context, moves_analysis):
-    # SAFETY CHECK: If engine failed, return a generic error prompt
     if not moves_analysis:
         return f"{explainedFEN}\n\nThe engine failed to analyze this position. Please ask me to analyze it again or check the logs."
 
     best_move = moves_analysis[0]
 
-    prompt = f"""{explainedFEN}
+    prompt = f"""Position Context:
+{explainedFEN}
+{position_context}
 
-    {position_context}
+Engine Analysis:
+Recommended Move: {best_move['move_san']}
+Continuation: {best_move['continuation']}
+Evaluation: {best_move['evaluation']}
 
-    The engine recommends {side} to play {best_move['move_san']}, leading to the continuation {best_move['continuation']}. The position evaluation shows that {best_move['evaluation'].lower()}. 
+Task:
+Explain why {best_move['move_san']} is the best move.
+1. Identify the immediate tactical or strategic reason for the move.
+2. Explain how it improves {side}'s position or prevents a threat.
+3. Mention the long-term plan implied by this move.
 
-    In 2-3 sentences, explain why {best_move['move_san']} is the strongest choice and what this evaluation means for {side}'s position. Focus only on the concrete information provided."""
+Keep the explanation concise (approx. 3-4 sentences) and accessible to an intermediate player."""
 
     return prompt
 
@@ -367,36 +381,22 @@ def create_grandmaster_prompt(explainedFEN, side, position_context, moves_analys
         ]
     )
 
-    prompt = f"""{explainedFEN}
+    prompt = f"""Position Context:
+{explainedFEN}
+{position_context}
+Side to move: {side}
 
-    {position_context}
+Engine Analysis - Top Candidate Moves:
+{moves_text}
 
-    Side to move: {side}
+Task:
+As a Grandmaster, provide a professional analysis of this position.
+1. Evaluate the strategic merits of the top recommendation.
+2. Discuss the alternative options and why they might be inferior or different.
+3. Explain the underlying chess principles (tactical and positional) that make these moves strong.
 
-    Engine Analysis - Top Candidate Moves:
-    {moves_text}
+Maintain a sophisticated, educational tone suitable for a serious player."""
 
-    As a grandmaster, provide a professional analysis of this position. Evaluate the strategic merits of the top recommendation, consider the alternative options, and explain the underlying chess principles that make these moves strong. Address both tactical and positional factors that influence the evaluation."""
-
-    return prompt
-
-def create_coach_prompt(explainedFEN, side, position_context, moves_analysis):
-    if not moves_analysis:
-        return f"{explainedFEN}\n\nThe engine failed to analyze this position. Please ask me to analyze it again or check the logs."
-
-    best_move = moves_analysis[0]
-
-    prompt = f"""{explainedFEN}
-
-    {position_context}
-
-    The engine recommends {side} to play {best_move['move_san']}.
-
-    Please analyze this position and output the response in exactly this format:
-    - Best Move: {best_move['move_san']}
-    - Key Idea: [Explain the strategic goal in 1 sentence]
-    - Threat: [What risks might there be in making this move, if any?]
-    """
     return prompt
 
 
