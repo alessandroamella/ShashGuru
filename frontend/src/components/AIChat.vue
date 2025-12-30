@@ -13,10 +13,6 @@ const starting_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 // Computed for current model to send in requests
 const selectedModelId = computed(() => chessStore.selectedModel)
 const availableModels = ref([])
-const selectedModelName = computed(() => {
-  const model = availableModels.value.find((m) => m.id === chessStore.selectedModel)
-  return model ? model.name : null
-})
 
 //emits
 const emit = defineEmits(['loadingChat'])
@@ -132,9 +128,10 @@ async function sendMessageSTREAMED() {
   scrollToBottom()
 
   try {
-    // Add &model=... to query
-    const modelParam = selectedModelId.value
-      ? `&model=${encodeURIComponent(selectedModelId.value)}`
+    // Capture the model ID at the time of sending
+    const currentModelId = selectedModelId.value
+    const modelParam = currentModelId
+      ? `&model=${encodeURIComponent(currentModelId)}`
       : ''
     const response = await fetch(
       server_url.value + `/response?style=${selectedStyle.value}${modelParam}`,
@@ -156,7 +153,7 @@ async function sendMessageSTREAMED() {
     let fullMessage = ''
     let streamStarted = false
 
-    messages.value.push({ role: 'assistant', content: '' })
+    messages.value.push({ role: 'assistant', content: '', modelId: currentModelId })
 
     while (true) {
       const { done, value } = await reader.read()
@@ -207,6 +204,8 @@ async function startAnalysisSTREAMED() {
     emit('loadingChat', true)
 
     try {
+      // Capture the model ID at the time of analysis
+      const currentModelId = selectedModelId.value
       const response = await fetch(server_url.value + '/analysis', {
         method: 'POST',
         headers: {
@@ -216,7 +215,7 @@ async function startAnalysisSTREAMED() {
           fen: fenToAnalyse,
           depth: props.depth,
           style: selectedStyle.value,
-          model: selectedModelId.value, // Pass model here
+          model: currentModelId,
         }),
       })
 
@@ -231,7 +230,7 @@ async function startAnalysisSTREAMED() {
       let promptReceived = false
       let systemPrompt = ''
 
-      messages.value.push({ role: 'assistant', content: '' })
+      messages.value.push({ role: 'assistant', content: '', modelId: currentModelId })
 
       while (true) {
         const { done, value } = await reader.read()
@@ -441,8 +440,8 @@ onMounted(async () => {
             v-html="renderedMarkdown(message.content)"
           ></div>
           <!-- Model name display -->
-          <div v-if="selectedModelName" class="model-name-badge mt-2">
-            <small>{{ selectedModelName }}</small>
+          <div v-if="message.modelId" class="model-name-badge mt-2">
+            <small>{{ availableModels.find((m) => m.id === message.modelId)?.name || message.modelId }}</small>
           </div>
           <!-- Action buttons (copy / retry) -->
           <div v-if="!loading && isClipboardCopyingAvailable" class="d-flex message-actions">
