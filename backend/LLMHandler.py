@@ -612,6 +612,18 @@ def _get_request_kwargs(model_name):
     return kwargs
 
 
+def _sanitize_history(chat_history):
+    """
+    Strips frontend-specific properties (like 'hidden', 'modelId')
+    from messages before sending to strict APIs like Groq/OpenAI.
+    """
+    clean_history = []
+    for msg in chat_history:
+        clean_msg = {"role": msg.get("role"), "content": msg.get("content")}
+        clean_history.append(clean_msg)
+    return clean_history
+
+
 def query_LLM(
     prompt,
     tokenizer,
@@ -624,6 +636,9 @@ def query_LLM(
     if chat_history is None:
         chat_history = []
     chat_history = chat_history[-max_history:]
+
+    # Sanitize history to remove frontend-only fields
+    clean_history = _sanitize_history(chat_history)
 
     system_message = SYSTEM_MESSAGES.get(style, SYSTEM_MESSAGES["default"])
 
@@ -639,7 +654,7 @@ def query_LLM(
         # Convert chat history to Gemini format
         # Gemini uses 'contents' with 'parts' structure
         contents = []
-        for msg in chat_history:
+        for msg in clean_history:
             role = "model" if msg["role"] == "assistant" else "user"
             contents.append({"role": role, "parts": [{"text": msg["content"]}]})
 
@@ -671,7 +686,7 @@ def query_LLM(
 
         messages = (
             [{"role": "system", "content": system_message}]
-            + chat_history
+            + clean_history
             + [{"role": "user", "content": prompt}]
         )
 
@@ -697,6 +712,9 @@ def stream_LLM(
         chat_history = []
     chat_history = chat_history[-max_history:]
 
+    # Sanitize history to remove frontend-only fields
+    clean_history = _sanitize_history(chat_history)
+
     system_message = SYSTEM_MESSAGES.get(style, SYSTEM_MESSAGES["default"])
 
     # Check if this is a Gemini model - use native SDK
@@ -710,7 +728,7 @@ def stream_LLM(
 
         # Convert chat history to Gemini format
         contents = []
-        for msg in chat_history:
+        for msg in clean_history:
             role = "model" if msg["role"] == "assistant" else "user"
             contents.append({"role": role, "parts": [{"text": msg["content"]}]})
 
@@ -770,7 +788,7 @@ def stream_LLM(
 
         messages = (
             [{"role": "system", "content": system_message}]
-            + chat_history
+            + clean_history
             + [{"role": "user", "content": prompt}]
         )
 
