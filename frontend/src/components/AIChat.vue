@@ -2,7 +2,7 @@
 import { ref, watch, nextTick, onMounted, computed } from 'vue'
 import { validateFen } from 'fentastic'
 import MarkdownIt from 'markdown-it'
-import { useChessStore } from '@/stores/useChessStore' // Import store
+import { useChessStore } from '@/stores/useChessStore'
 
 const chessStore = useChessStore()
 
@@ -402,15 +402,30 @@ async function copyMessage(text) {
 //  Regenerate assistant reply
 
 async function regenerateMessage(index) {
+  // Cerca l'indice dell'ultimo messaggio utente precedente a quello corrente
   const lastUserIndex = messages.value
     .slice(0, index)
     .map((msg, i) => ({ msg, i }))
     .reverse()
     .find((item) => item.msg.role === 'user')?.i
-  if (lastUserIndex === undefined) return
+
+  // CASO 1: RIGENERAZIONE ANALISI
+  // Se non troviamo un messaggio utente, significa che stiamo rigenerando un'analisi iniziale
+  if (lastUserIndex === undefined) {
+    messages.value.splice(index, 1) // Rimuovi il messaggio di risposta vecchio
+    await startAnalysisSTREAMED()   // Rilancia l'analisi
+    return
+  }
+
+  // CASO 2: RIGENERAZIONE CHAT
+  // Se c'è un messaggio utente, è una normale chat
   const lastUserMessage = messages.value[lastUserIndex]
   userInput.value = lastUserMessage.content
-  messages.value.splice(index - 1, 2)
+  
+  // Rimuovi tutti i messaggi dall'ultimo utente fino a quello corrente (resetta il turno)
+  // Questo sostituisce il vecchio 'splice(index - 1, 2)' che era meno robusto
+  messages.value.splice(lastUserIndex, (index - lastUserIndex) + 1)
+  
   await sendMessageSTREAMED()
 }
 
