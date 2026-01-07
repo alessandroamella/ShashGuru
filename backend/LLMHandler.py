@@ -600,10 +600,10 @@ Engine Analysis - Top Candidate Moves:
 {moves_text}
 
 Task:
-As a Grandmaster, provide a professional analysis of this position.
+As a Grandmaster, provide a professional and fluent analysis of this position.
 1. Evaluate the strategic merits of the top recommendation.
 2. Discuss the alternative options and why they might be inferior or different.
-3. Explain the underlying chess principles (tactical and positional) that make these moves strong.
+3. Mention the underlying chess principles (tactical and positional) that make these moves strong.
 4. Use the win probabilities to contrast the practical merits between candidate moves.
 
 Maintain a sophisticated, educational tone suitable for a serious player."""
