@@ -22,7 +22,6 @@ import warnings
 import math
 
 # Import for prompt creation
-from fenManipulation import fen_explainer
 import chess
 import os
 
@@ -248,24 +247,33 @@ def __format_eval(entry):
     return None
 
 
-def __mapWinProb(winprob, side, score=None, mate=None):
-    # FALLBACK: If engine didn't give winprob, calculate it from score/mate
-    if winprob is None:
-        if mate is not None:
-            # If mate is found: Positive mate = 100% win, Negative = 0%
-            winprob = 100 if mate > 0 else 0
-        elif score is not None:
-            # Convert Centipawns to Win Probability (Sigmoid curve approximation)
-            # +100 cp is roughly 60% win chance
-            try:
-                winprob = 50 + 50 * (2 / (1 + math.exp(-0.00368 * score)) - 1)
-            except OverflowError:
-                winprob = 100 if score > 0 else 0
-        else:
-            return "Unclear position."
+def calculate_win_probability(score=None, mate=None, engine_winprob=None):
+    """
+    Calculates the win probability (0-100) from engine evaluation.
+    """
+    if engine_winprob is not None:
+        return int(engine_winprob)
 
-    # Ensure winprob is an integer for comparison
-    winprob = int(winprob)
+    if mate is not None:
+        # If mate is found: Positive mate = 100% win
+        return 100 if mate > 0 else 0
+    
+    if score is not None:
+        # Convert Centipawns to Win Probability (Sigmoid curve approximation)
+        # P(win) = 1 / (1 + e^(-k * score))
+        # k = 0.00368
+        try:
+            val = 100 / (1 + math.exp(-0.00368 * score))
+            return int(val)
+        except OverflowError:
+            return 100 if score > 0 else 0
+            
+    return 50  # Default to equal if no info
+
+
+def __mapWinProb(winprob, side, score=None, mate=None):
+    # Use unified calculation
+    winprob = calculate_win_probability(score=score, mate=mate, engine_winprob=winprob)
 
     if 0 <= winprob <= 5:
         return f"{side} has a decisive disadvantage, with the position clearly leading to a loss."
@@ -309,6 +317,36 @@ def generate_line(line, board):
         tmp_board.push(uci_move)
     return " ".join(san_line)
 
+def get_concise_fen_summary(fen, board):
+    """Generate a concise summary of the board layout without listing every square"""
+    summary_parts = []
+
+    # Side to move
+    side_to_move = "White" if board.turn == chess.WHITE else "Black"
+    summary_parts.append(f"{side_to_move} to move")
+
+    # Key pieces positions (only major pieces and critical pawns)
+    white_pieces = []
+    black_pieces = []
+
+    for square, piece in board.piece_map().items():
+        square_name = chess.square_name(square)
+        piece_symbol = piece.symbol().upper()
+
+        # Only include non-pawn pieces and pawns on advanced ranks
+        rank = chess.square_rank(square)
+        if piece.piece_type != chess.PAWN or (piece.color == chess.WHITE and rank >= 4) or (piece.color == chess.BLACK and rank <= 3):
+            if piece.color == chess.WHITE:
+                white_pieces.append(f"{piece_symbol}{square_name}")
+            else:
+                black_pieces.append(f"{piece_symbol}{square_name}")
+
+    if white_pieces:
+        summary_parts.append(f"White: {', '.join(white_pieces)}")
+    if black_pieces:
+        summary_parts.append(f"Black: {', '.join(black_pieces)}")
+
+    return "; ".join(summary_parts)
 
 def analyze_position_context(fen, board):
     """Generate additional context about the position for the LLM"""
@@ -438,30 +476,33 @@ def analysis_to_string(fen, side, analysis):
 
 def create_prompt_single_engine(fen, bestmoves, ponder, style="default"):
     log.basicConfig(level=log.INFO)
-    explainedFEN, side = fen_explainer(fen)
     board = chess.Board(fen)
+    side = "White" if board.turn == chess.WHITE else "Black"
+    
+    # Generate concise summary for use in all prompts
+    fen_summary = get_concise_fen_summary(fen, board)
 
     # NEW: Check for game over conditions before checking engine analysis
     if board.is_checkmate():
         winner = "Black" if board.turn == chess.WHITE else "White"
-        prompt = f"{explainedFEN}\n\nThe game is over. {winner} has won by checkmate. Explain the final position and the checkmate pattern."
+        prompt = f"{fen_summary}\n\nThe game is over. {winner} has won by checkmate. Explain the final position and the checkmate pattern."
         if style == "grandmaster":
-            prompt = f"The game has concluded with {winner} delivering checkmate. {explainedFEN}\n\nAs a Grandmaster, analyze the final mating pattern and the decisive elements of the position."
+            prompt = f"The game has concluded with {winner} delivering checkmate. {fen_summary}\n\nAs a Grandmaster, analyze the final mating pattern and the decisive elements of the position."
         return prompt
 
     if board.is_stalemate():
-        prompt = f"{explainedFEN}\n\nThe game is drawn by stalemate. Explain why the king has no legal moves but is not in check."
+        prompt = f"{fen_summary}\n\nThe game is drawn by stalemate. Explain why the king has no legal moves but is not in check."
         if style == "grandmaster":
-            prompt = f"The game has ended in a stalemate. {explainedFEN}\n\nAs a Grandmaster, comment on this draw resource."
+            prompt = f"The game has ended in a stalemate. {fen_summary}\n\nAs a Grandmaster, comment on this draw resource."
         return prompt
 
     if board.is_insufficient_material():
-        prompt = f"{explainedFEN}\n\nThe game is drawn due to insufficient material."
+        prompt = f"{fen_summary}\n\nThe game is drawn due to insufficient material."
         return prompt
 
     if board.is_game_over():  # Catch-all for other draws (repetition, 50-move)
         result = board.result()
-        prompt = f"{explainedFEN}\n\nThe game has ended. Result: {result}. Explain the situation."
+        prompt = f"{fen_summary}\n\nThe game has ended. Result: {result}. Explain the situation."
         return prompt
 
     # Get position context
@@ -475,12 +516,10 @@ def create_prompt_single_engine(fen, bestmoves, ponder, style="default"):
 
         move_uci = move_data["pv_moves"][0]
         move_san = board.san(chess.Move.from_uci(move_uci))
-        win_prob_text = __mapWinProb(
-            move_data.get("winprob"),
-            side,
-            score=move_data.get("score"),
-            mate=move_data.get("mate"),
-        )
+        
+        winprob_numeric = move_data.get("winprob")
+        win_prob_text = __mapWinProb(winprob_numeric, side, move_data.get("score"), move_data.get("mate"))
+        
         continuation = generate_line(move_data["pv_moves"][:4], board)
 
         moves_analysis.append(
@@ -489,6 +528,7 @@ def create_prompt_single_engine(fen, bestmoves, ponder, style="default"):
                 "move_san": move_san,
                 "move_uci": move_uci,
                 "evaluation": win_prob_text,
+                "winprob_numeric": winprob_numeric,
                 "continuation": continuation,
             }
         )
@@ -496,11 +536,11 @@ def create_prompt_single_engine(fen, bestmoves, ponder, style="default"):
     # Create style-specific prompts
     if style == "grandmaster":
         prompt = create_grandmaster_prompt(
-            explainedFEN, side, position_context, moves_analysis
+            fen_summary, side, position_context, moves_analysis
         )
     else:  # default/commentator
         prompt = create_default_prompt(
-            explainedFEN, side, position_context, moves_analysis
+            fen_summary, side, position_context, moves_analysis
         )
 
     log.info(f"Generated {style} prompt for single engine:")
@@ -508,45 +548,51 @@ def create_prompt_single_engine(fen, bestmoves, ponder, style="default"):
     return prompt
 
 
-def create_default_prompt(explainedFEN, side, position_context, moves_analysis):
+def create_default_prompt(fen_summary, side, position_context, moves_analysis):
     if not moves_analysis:
-        return f"{explainedFEN}\n\nThe engine failed to analyze this position. Please ask me to analyze it again or check the logs."
+        return f"{fen_summary}\n\nThe engine failed to analyze this position. Please ask me to analyze it again or check the logs."
 
     best_move = moves_analysis[0]
 
-    prompt = f"""Position Context:
-{explainedFEN}
+    prompt = f"""Board Layout:
+{fen_summary}
+
+Position Analysis:
 {position_context}
 
-Engine Analysis:
-Recommended Move: {best_move['move_san']}
+Engine Recommendation:
+Best Move: {best_move['move_san']}
+Win Probability: {best_move['winprob_numeric']}% for {side}
 Continuation: {best_move['continuation']}
-Evaluation: {best_move['evaluation']}
+Assessment: {best_move['evaluation']}
 
 Task:
 Explain why {best_move['move_san']} is the best move.
 1. Identify the immediate tactical or strategic reason for the move.
 2. Explain how it improves {side}'s position or prevents a threat.
 3. Mention the long-term plan implied by this move.
+4. Reference the win probability as a quantitative anchor.
 
 Keep the explanation concise (approx. 3-4 sentences) and accessible to an intermediate player."""
 
     return prompt
 
 
-def create_grandmaster_prompt(explainedFEN, side, position_context, moves_analysis):
+def create_grandmaster_prompt(fen_summary, side, position_context, moves_analysis):
     if not moves_analysis:
         return "The engine could not analyze this position. As a Grandmaster, I cannot comment on specific lines without calculation."
 
     moves_text = "\n".join(
         [
-            f"{move['rank']}. {move['move_san']} - {move['evaluation']} (continuation: {move['continuation']})"
+            f"{move['rank']}. {move['move_san']} ({move['winprob_numeric']}% win probability) - {move['evaluation']}\n   Continuation: {move['continuation']}"
             for move in moves_analysis
         ]
     )
 
-    prompt = f"""Position Context:
-{explainedFEN}
+    prompt = f"""Board Layout:
+{fen_summary}
+
+Position Analysis:
 {position_context}
 Side to move: {side}
 
@@ -558,6 +604,7 @@ As a Grandmaster, provide a professional analysis of this position.
 1. Evaluate the strategic merits of the top recommendation.
 2. Discuss the alternative options and why they might be inferior or different.
 3. Explain the underlying chess principles (tactical and positional) that make these moves strong.
+4. Use the win probabilities to contrast the practical merits between candidate moves.
 
 Maintain a sophisticated, educational tone suitable for a serious player."""
 
@@ -565,7 +612,8 @@ Maintain a sophisticated, educational tone suitable for a serious player."""
 
 
 def create_prompt_double_engine(fen, engine_analysis):
-    explainedFEN = fen_explainer(fen)
+    board = chess.Board(fen)
+    fen_summary = get_concise_fen_summary(fen, board)
 
     nnue = engine_analysis["NNUE"]
     human = engine_analysis["HUMAN"]
@@ -591,7 +639,7 @@ def create_prompt_double_engine(fen, engine_analysis):
 
     full_prompt = (
         "I will explain the board situation:\n"
-        + explainedFEN
+        + fen_summary
         + "\n\n"
         + bestmove_prompt
         + " "

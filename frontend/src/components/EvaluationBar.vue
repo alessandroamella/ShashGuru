@@ -61,7 +61,7 @@
     <!-- Evaluation details -->
     <div v-if="evaluation && enabled" class="evaluation-details">
       <!-- <div class="best-move">
-        <span class="label">Best:</span> 
+        <span class="label">Best:</span>
         <span class="move">{{ evaluation.move }}</span>
       </div> -->
       <!-- <div v-if="evaluation.winprob !== null" class="win-probability">
