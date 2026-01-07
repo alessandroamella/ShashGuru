@@ -13,27 +13,27 @@
 
     <div v-if="localEnabled" class="setting-item">
       <label for="depth-slider" class="setting-label"> Depth: {{ localDepth }} </label>
-      <input
-        id="depth-slider"
-        type="range"
-        v-model="localDepth"
-        :min="MIN_DEPTH"
-        :max="MAX_DEPTH"
-        step="1"
-        class="setting-slider"
-        @input="updateDepth"
-      />
+      <input id="depth-slider" type="range" v-model="localDepth" :min="MIN_DEPTH" :max="MAX_DEPTH" step="1"
+        class="setting-slider" @input="updateDepth" />
     </div>
 
     <!-- LLM Model Selection (New) -->
     <div v-if="localEnabled" class="setting-item">
       <label for="model-selector" class="setting-label">AI Model</label>
-      <select
-        id="model-selector"
-        v-model="currentModel"
-        class="form-select form-select-sm bg-dark text-white border-secondary mb-2"
-        @change="updateModel"
-      >
+      <select id="model-selector" v-model="currentModel"
+        class="form-select form-select-sm bg-dark text-white border-secondary mb-2" @change="updateModel">
+        <option v-for="model in availableModels" :key="model.id" :value="model.id">
+          {{ model.name }}
+        </option>
+      </select>
+    </div>
+
+    <!-- AI's Valuation Model Selection -->
+    <div v-if="localEnabled" class="setting-item">
+      <label for="evaluator-model-selector" class="setting-label">AI's Valuation Model</label>
+      <select id="evaluator-model-selector" v-model="currentEvaluatorModel"
+        class="form-select form-select-sm bg-dark text-white border-secondary mb-2" @change="updateEvaluatorModel">
+        <option :value="null">None</option>
         <option v-for="model in availableModels" :key="model.id" :value="model.id">
           {{ model.name }}
         </option>
@@ -55,16 +55,8 @@
 
     <div v-if="localEnabled" class="setting-item">
       <label for="lines-slider" class="setting-label"> Show Lines: {{ localShowLines }} </label>
-      <input
-        id="lines-slider"
-        type="range"
-        v-model="localShowLines"
-        :min="MIN_SHOW_LINES"
-        :max="MAX_SHOW_LINES"
-        step="1"
-        class="setting-slider"
-        @input="updateShowLines"
-      />
+      <input id="lines-slider" type="range" v-model="localShowLines" :min="MIN_SHOW_LINES" :max="MAX_SHOW_LINES"
+        step="1" class="setting-slider" @input="updateShowLines" />
     </div>
 
     <div v-if="localEnabled" class="setting-item">
@@ -116,6 +108,7 @@ const emit = defineEmits([
 const chessStore = useChessStore()
 const availableModels = ref([])
 const currentModel = ref(chessStore.selectedModel || '')
+const currentEvaluatorModel = ref(chessStore.selectedEvaluatorModel || '')
 const server_url = import.meta.env.BASE_URL + 'backend'
 
 // Fetch models
@@ -137,6 +130,10 @@ onMounted(async () => {
 
 const updateModel = () => {
   chessStore.setSelectedModel(currentModel.value)
+}
+
+const updateEvaluatorModel = () => {
+  chessStore.setSelectedEvaluatorModel(currentEvaluatorModel.value)
 }
 
 const localDepth = ref(props.depth)
@@ -282,11 +279,11 @@ watch(
   border-radius: 50%;
 }
 
-input:checked + .slider {
+input:checked+.slider {
   background-color: #cdd26a;
 }
 
-input:checked + .slider:before {
+input:checked+.slider:before {
   transform: translateX(26px);
 }
 
@@ -363,6 +360,7 @@ input:checked + .slider:before {
   color: #f2f2f2;
   font-size: 13px;
 }
+
 .form-select:focus {
   box-shadow: 0 0 0 0.25rem rgba(205, 210, 106, 0.25);
   border-color: #aaa23a;

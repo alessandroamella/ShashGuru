@@ -4,6 +4,7 @@ export const useChessStore = defineStore('chess', {
   state: () => ({
     currentPGN: null,
     selectedModel: null, // Holds the ID of the selected LLM
+    selectedEvaluatorModel: null, // Holds the ID of the selected Evaluator LLM
   }),
   actions: {
     setPGN(pgn) {
@@ -11,6 +12,9 @@ export const useChessStore = defineStore('chess', {
     },
     setSelectedModel(modelId) {
       this.selectedModel = modelId
+    },
+    setSelectedEvaluatorModel(modelId) {
+      this.selectedEvaluatorModel = modelId
     }
   },
 })

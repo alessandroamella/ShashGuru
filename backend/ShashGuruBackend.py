@@ -170,6 +170,7 @@ def analysis():
     depth = request.json.get("depth", 20)
     style = request.json.get("style", "default")
     model_name = request.json.get("model")  # Get selected model
+    evaluator_model_name = request.json.get("evaluator_model")  # Get selected evaluator model
 
     # Request 3 lines for multiple move analysis for complex personas
     lines = 1 if style == "default" else 3
@@ -187,12 +188,29 @@ def analysis():
             {"prompt": prompt}
         ) + "\n[PROMPT_END]\n"  # sends single chunk with prompt, to save it as context for responses
         yield "[START_STREAM]\n"  # optional: delimiter for stream start
+        
+        full_response = ""
         # Pass model_name to stream_LLM
         for token in LLMHandler.stream_LLM(
             prompt, model, style=style, model_name=model_name
         ):
+            full_response += token
             yield token
         yield "\n[END_STREAM]"  # optional: delimiter for stream end
+
+        # Self-Correction/Evaluation
+        try:
+            if evaluator_model_name and evaluator_model_name.lower() != "none" and evaluator_model_name.lower() != "null":
+                eval_result = LLMHandler.evaluate_analysis(
+                    fen, 
+                    full_response, 
+                    evaluator_model_name,
+                    engine_context=str(bestmoves)
+                )
+                if eval_result:
+                    yield "\n[EVALUATION]" + json.dumps(eval_result)
+        except Exception as e:
+            logging.error(f"Error during analysis evaluation: {e}")
 
     return Response(stream_with_context(generate()), mimetype="text/plain")
 
@@ -206,9 +224,13 @@ def response():
     new_question = chat_history[-1].get("content")
     style = request.args.get("style", "default")
     model_name = request.args.get("model")  # Get model from query param
+    evaluator_model_name = request.args.get("evaluator_model")  # Get evaluator model from query param
+    fen = request.args.get("fen")
 
     def generate():
         yield "[START_STREAM]\n"
+        
+        full_response = ""
         # Pass model_name to stream_LLM
         for token in LLMHandler.stream_LLM(
             new_question,
@@ -217,8 +239,23 @@ def response():
             style=style,
             model_name=model_name,
         ):
+            full_response += token
             yield token
         yield "\n[END_STREAM]"
+        
+        # Evaluation if FEN is provided
+        if fen:
+             try:
+                if evaluator_model_name and evaluator_model_name.lower() != "none" and evaluator_model_name.lower() != "null":
+                    eval_result = LLMHandler.evaluate_analysis(
+                        fen, 
+                        full_response, 
+                        evaluator_model_name
+                    )
+                    if eval_result:
+                        yield "\n[EVALUATION]" + json.dumps(eval_result)
+             except Exception as e:
+                logging.error(f"Error during response evaluation: {e}")
 
     return Response(stream_with_context(generate()), mimetype="text/plain")
 

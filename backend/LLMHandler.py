@@ -20,6 +20,8 @@ from google.genai import types
 import logging as log
 import warnings
 import math
+import json
+import re
 
 # Import for prompt creation
 import chess
@@ -103,6 +105,22 @@ Keep responses focused and concise - avoid lengthy explanations. 3-4 sentences m
 
 For follow-up questions, maintain the same authoritative and educational tone, always grounding responses in sound chess theory while staying brief.
 """,
+    "evaluator": """
+You are a strict chess supervisor and critic.
+Your task is to evaluate the correctness of a chess analysis provided by another AI.
+You will be given the FEN position (and optionally engine lines) and the analysis text.
+Rate the analysis on a scale of 1 to 10 based on:
+1. Technical correctness (are the moves legal and good?)
+2. Clarity and helpfulness.
+3. Alignment with the engine's best lines (if provided).
+
+Output ONLY a JSON object with the following format:
+{
+  "score": <number 1-10>,
+  "reason": "<short explanation, max 2 sentences>"
+}
+Do not output any markdown or other text.
+""",
 }
 
 # Keep backward compatibility
@@ -123,6 +141,7 @@ def get_analysis_styles():
     return [
         {"value": style_key, "label": STYLE_LABELS.get(style_key, style_key.title())}
         for style_key in SYSTEM_MESSAGES.keys()
+        if style_key != "evaluator"
     ]
 
 
@@ -912,3 +931,46 @@ Only answer with a "yes" or a "no".
         response_text = output.choices[0].message.content.strip().lower()
 
     return response_text in ["yes", "yes."]
+
+def evaluate_analysis(fen, advice, evaluator_model_name=None, engine_context=None):
+    """
+    Evaluates the advice using the specified model.
+    Returns a dict with score, reason, and model_name.
+    """
+    if evaluator_model_name is None:
+        evaluator_model_name = DEFAULT_MODEL
+
+    prompt = f"FEN: {fen}\n"
+    if engine_context:
+        prompt += f"Engine best moves (for context/verification): {engine_context}\n"
+
+    prompt += f"Analysis to evaluate:\n{advice}\n"
+
+    try:
+        # Use style="evaluator" to set the system message
+        response_text, _ = query_LLM(
+            prompt, None, None, style="evaluator", model_name=evaluator_model_name
+        )
+
+        # Parse JSON
+        # Remove potential markdown formatting
+        text = response_text.replace("```json", "").replace("```", "").strip()
+        
+        # Sometimes models add extra text, try to extract JSON
+        json_match = re.search(r"\{.*\}", text, re.DOTALL)
+        if json_match:
+            text = json_match.group(0)
+            
+        result = json.loads(text)
+        
+        # Add friendly model name
+        model_info = next(
+            (m for m in SUPPORTED_MODELS if m["id"] == evaluator_model_name), None
+        )
+        result["model_name"] = model_info["name"] if model_info else evaluator_model_name
+        
+        return result
+    except Exception as e:
+        log.error(f"Evaluation failed: {e}")
+        return None
+

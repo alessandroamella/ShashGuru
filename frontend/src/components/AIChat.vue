@@ -12,6 +12,7 @@ const starting_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
 // Computed for current model to send in requests
 const selectedModelId = computed(() => chessStore.selectedModel)
+const selectedEvaluatorModelId = computed(() => chessStore.selectedEvaluatorModel)
 const availableModels = ref([])
 
 //emits
@@ -130,11 +131,17 @@ async function sendMessageSTREAMED() {
   try {
     // Capture the model ID at the time of sending
     const currentModelId = selectedModelId.value
-    const modelParam = currentModelId
+    const currentEvaluatorId = selectedEvaluatorModelId.value
+    let modelParam = currentModelId
       ? `&model=${encodeURIComponent(currentModelId)}`
       : ''
+
+    if (currentEvaluatorId) {
+      modelParam += `&evaluator_model=${encodeURIComponent(currentEvaluatorId)}`
+    }
+
     const response = await fetch(
-      server_url.value + `/response?style=${selectedStyle.value}${modelParam}`,
+      server_url.value + `/response?style=${selectedStyle.value}${modelParam}&fen=${encodeURIComponent(props.fen)}`,
       {
         method: 'POST',
         headers: {
@@ -150,8 +157,7 @@ async function sendMessageSTREAMED() {
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
-    let fullMessage = ''
-    let streamStarted = false
+    let rawBuffer = ''
 
     messages.value.push({ role: 'assistant', content: '', modelId: currentModelId })
 
@@ -159,30 +165,29 @@ async function sendMessageSTREAMED() {
       const { done, value } = await reader.read()
       if (done) break
 
-      const chunk = decoder.decode(value, { stream: true })
+      rawBuffer += decoder.decode(value, { stream: true })
 
-      console.log('Received message chunk:', chunk)
+      if (rawBuffer.includes('[START_STREAM]')) {
+        const parts = rawBuffer.split('[START_STREAM]')
+        const activePart = parts[1] // text after start stream
 
-      if (chunk.includes('[START_STREAM]')) {
-        streamStarted = true
-        continue
+        const evalSplit = activePart.split('\n[EVALUATION]')
+        const content = evalSplit[0].replace('[END_STREAM]', '')
+
+        messages.value[messages.value.length - 1].content = content
+
+        if (evalSplit.length > 1) {
+          try {
+            messages.value[messages.value.length - 1].evaluation = JSON.parse(evalSplit[1])
+          } catch (e) {
+            console.log("Incomplete JSON, wait for next chunk", e)
+          }
+        }
+        scrollToBottom()
       }
-
-      if (!streamStarted) continue
-
-      if (chunk.includes('[END_STREAM]')) {
-        fullMessage += chunk.replace('[END_STREAM]', '')
-        break
-      }
-
-      fullMessage += chunk
-      messages.value[messages.value.length - 1].content = fullMessage
-      scrollToBottom()
     }
 
-    // Final update (optional, you already streamed into it)
-    fullMessage = fullMessage.trim()
-    messages.value[messages.value.length - 1].content = fullMessage
+    // Final cleanup
   } catch (error) {
     console.error('Streaming error:', error)
     messages.value.push({ role: 'assistant', content: 'Error: unable to fetch response.' })
@@ -206,6 +211,7 @@ async function startAnalysisSTREAMED() {
     try {
       // Capture the model ID at the time of analysis
       const currentModelId = selectedModelId.value
+      const currentEvaluatorId = selectedEvaluatorModelId.value
       const response = await fetch(server_url.value + '/analysis', {
         method: 'POST',
         headers: {
@@ -216,6 +222,7 @@ async function startAnalysisSTREAMED() {
           depth: props.depth,
           style: selectedStyle.value,
           model: currentModelId,
+          evaluator_model: currentEvaluatorId,
         }),
       })
 
@@ -226,9 +233,8 @@ async function startAnalysisSTREAMED() {
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
-      let fullMessageANALYSIS = ''
-      let promptReceived = false
-      let systemPrompt = ''
+      let rawBuffer = ''
+      let promptProcessed = false
 
       messages.value.push({ role: 'assistant', content: '', modelId: currentModelId })
 
@@ -236,51 +242,52 @@ async function startAnalysisSTREAMED() {
         const { done, value } = await reader.read()
         if (done) break
 
-        let chunk = decoder.decode(value, { stream: true })
+        rawBuffer += decoder.decode(value, { stream: true })
 
-        // log raw chunk for debugging
-        console.log('Received chunk:', chunk)
-
-        if (!promptReceived) {
-          const promptEndIndex = chunk.indexOf('[PROMPT_END]')
-          if (promptEndIndex > -1) {
-            const promptPart = chunk.substring(0, promptEndIndex)
-            try {
-              const promptData = JSON.parse(promptPart)
-              systemPrompt = promptData.prompt
-              promptReceived = true
-
-              // Store the system prompt as the first message
+        // Process prompt if present and not processed
+        if (!promptProcessed && rawBuffer.includes('[PROMPT_END]')) {
+          const promptEndIndex = rawBuffer.indexOf('[PROMPT_END]')
+          const promptPart = rawBuffer.substring(0, promptEndIndex)
+          try {
+            // Find valid JSON start
+            const jsonStart = promptPart.indexOf('{')
+            if (jsonStart > -1) {
+              const promptData = JSON.parse(promptPart.substring(jsonStart))
+              const systemPrompt = promptData.prompt
               messages.value.unshift({
                 role: 'system',
                 content: systemPrompt,
-                hidden: true, // Optional: hide from UI
+                hidden: true,
               })
-
-              // Remove the prompt part from the chunk
-              chunk = chunk.substring(promptEndIndex + '[PROMPT_END]'.length)
-            } catch (e) {
-              console.error('Error parsing prompt:', e)
+              promptProcessed = true
             }
+          } catch (e) {
+            console.error('Error parsing prompt:', e)
           }
         }
 
-        if (chunk.includes('[START_STREAM]')) {
-          chunk = chunk.replace('[START_STREAM]', '')
-        }
+        if (rawBuffer.includes('[START_STREAM]')) {
+          const parts = rawBuffer.split('[START_STREAM]')
+          const activePart = parts[1] // text after start stream
 
-        if (chunk.includes('[END_STREAM]')) {
-          chunk = chunk.replace('[END_STREAM]', '')
-        }
+          const evalSplit = activePart.split('\n[EVALUATION]')
+          const content = evalSplit[0].replace('[END_STREAM]', '')
 
-        fullMessageANALYSIS += chunk
-        messages.value[messages.value.length - 1].content = fullMessageANALYSIS
-        scrollToBottom()
+          messages.value[messages.value.length - 1].content = content
+
+          if (evalSplit.length > 1) {
+            try {
+              messages.value[messages.value.length - 1].evaluation = JSON.parse(evalSplit[1])
+            } catch (e) {
+              console.log("Waiting full JSON", e)
+            }
+          }
+          scrollToBottom()
+        }
       }
 
       // Final cleanup
-      fullMessageANALYSIS = fullMessageANALYSIS.trim()
-      messages.value[messages.value.length - 1].content = fullMessageANALYSIS
+      // Content already updated in loop
     } catch (error) {
       console.error('Streaming error:', error)
       messages.value.push({ role: 'assistant', content: 'Error: unable to fetch analysis.' })
@@ -420,6 +427,12 @@ onMounted(async () => {
     console.error('Failed to fetch models in AIChat', e)
   }
 })
+
+function getScoreClass(score) {
+  if (score >= 7) return 'bg-success'
+  if (score >= 5) return 'bg-warning text-dark'
+  return 'bg-danger'
+}
 </script>
 
 <template>
@@ -435,34 +448,43 @@ onMounted(async () => {
 
         <div v-else-if="message.role === 'assistant'" class="p-3 pe-4 rounded-4 me-5">
           <h6 class="mb-0">AI:</h6>
-          <div
-            class="text-break text-start message"
-            v-html="renderedMarkdown(message.content)"
-          ></div>
+          <div class="text-break text-start message" v-html="renderedMarkdown(message.content)"></div>
+
+          <!-- Evaluation Display -->
+          <div v-if="message.evaluation" class="evaluation-box mt-3 rounded"
+            style="background-color: #262421; border: 1px solid #444;">
+            <details>
+              <summary class="d-flex justify-content-between align-items-center p-2 rounded-top cursor-pointer"
+                style="background-color: #1a1916; color: #aaa23a; user-select: none;">
+                <span class="fw-bold" style="font-size: 0.85rem;">
+                  Evaluation by {{ message.evaluation.model_name }}
+                </span>
+                <span class="badge" :class="getScoreClass(message.evaluation.score)" style="font-size: 0.9em;">
+                  {{ message.evaluation.score }}/10
+                </span>
+              </summary>
+              <div class="evaluation-content p-3 border-top border-secondary">
+                <p v-if="message.evaluation.reason" class="mb-0 text-white-50" style="font-size: 0.9em;">
+                  {{ message.evaluation.reason }}
+                </p>
+              </div>
+            </details>
+          </div>
+
           <!-- Model name display -->
           <div v-if="message.modelId" class="model-name-badge mt-2">
-            <small>{{ availableModels.find((m) => m.id === message.modelId)?.name || message.modelId }}</small>
+            <small>{{availableModels.find((m) => m.id === message.modelId)?.name || message.modelId}}</small>
           </div>
           <!-- Action buttons (copy / retry) -->
           <div v-if="!loading && isClipboardCopyingAvailable" class="d-flex message-actions">
-            <span
-              v-if="!justCopiedMsg"
-              class="material-icons-outlined p-2 fs-5"
-              role="button"
-              title="Copia"
-              @click="copyMessage(message.content)"
-            >
+            <span v-if="!justCopiedMsg" class="material-icons-outlined p-2 fs-5" role="button" title="Copia"
+              @click="copyMessage(message.content)">
               content_copy
             </span>
             <span v-else class="material-icons-outlined p-2 fs-5" role="button" title="Copiato!">
               check
             </span>
-            <span
-              class="material-icons-outlined p-2 fs-5"
-              role="button"
-              title="Rigenera"
-              @click="regenerateMessage(i)"
-            >
+            <span class="material-icons-outlined p-2 fs-5" role="button" title="Rigenera" @click="regenerateMessage(i)">
               refresh
             </span>
           </div>
@@ -477,29 +499,15 @@ onMounted(async () => {
 
     <!-- AI PC Status Indicator -->
     <div class="ai-pc-status text-center mb-2">
-      <div
-        v-if="checkingLocalBackend"
-        class="d-flex justify-content-center align-items-center gap-2"
-      >
-        <span
-          class="spinner-border spinner-border-sm text-warning"
-          role="status"
-          aria-hidden="true"
-        ></span>
+      <div v-if="checkingLocalBackend" class="d-flex justify-content-center align-items-center gap-2">
+        <span class="spinner-border spinner-border-sm text-warning" role="status" aria-hidden="true"></span>
         <small class="text-warning">Checking local AI PC...</small>
       </div>
-      <div
-        v-else-if="isLocalBackendAvailable"
-        class="d-flex justify-content-center align-items-center gap-2"
-      >
+      <div v-else-if="isLocalBackendAvailable" class="d-flex justify-content-center align-items-center gap-2">
         <div class="status-indicator status-online"></div>
         <small class="text-success fw-bold">AI PC Enabled</small>
-        <button
-          class="btn btn-sm p-1 ms-2 refresh-btn"
-          @click="recheckLocalBackend"
-          title="Re-check local backend"
-          :disabled="checkingLocalBackend"
-        >
+        <button class="btn btn-sm p-1 ms-2 refresh-btn" @click="recheckLocalBackend" title="Re-check local backend"
+          :disabled="checkingLocalBackend">
           <span class="material-icons-outlined" style="font-size: 14px">refresh</span>
         </button>
       </div>
@@ -519,36 +527,23 @@ onMounted(async () => {
         <div class="d-flex justify-content-center align-items-center gap-3 mb-3">
           <div class="d-flex flex-column align-items-center">
             <label for="style-selector" class="style-label mb-1">Analysis Style</label>
-            <select
-              id="style-selector"
-              v-model="selectedStyle"
-              class="form-select style-selector"
-              aria-label="Analysis Style"
-            >
+            <select id="style-selector" v-model="selectedStyle" class="form-select style-selector"
+              aria-label="Analysis Style">
               <option v-for="style in analysisStyles" :key="style.value" :value="style.value">
                 {{ style.label }}
               </option>
             </select>
           </div>
 
-          <button
-            type="button"
-            class="btn btn-sm fs-4 text-black rounded rounded-4 custom-bg-primary px-5 py-3 fw-bold"
-            @click="startAnalysisSTREAMED"
-          >
+          <button type="button" class="btn btn-sm fs-4 text-black rounded rounded-4 custom-bg-primary px-5 py-3 fw-bold"
+            @click="startAnalysisSTREAMED">
             Analyze
           </button>
         </div>
       </div>
-      <input
-        v-model="userInput"
-        v-else
-        @keyup.enter="sendMessageSTREAMED"
-        id="input"
-        class="flex-item border rounded px-3 py-2 mt-2 w-100 text-white custom-box"
-        placeholder="Ask Anything!"
-        autocomplete="off"
-      />
+      <input v-model="userInput" v-else @keyup.enter="sendMessageSTREAMED" id="input"
+        class="flex-item border rounded px-3 py-2 mt-2 w-100 text-white custom-box" placeholder="Ask Anything!"
+        autocomplete="off" />
     </div>
   </div>
 </template>
@@ -558,11 +553,11 @@ onMounted(async () => {
   color: #bbb;
 }
 
-.message-actions > span {
+.message-actions>span {
   border-radius: 50%;
 }
 
-.message-actions > span:hover {
+.message-actions>span:hover {
   background-color: #ffffff1e;
 }
 
@@ -590,11 +585,11 @@ onMounted(async () => {
   background: #323232 !important;
 }
 
-.message > *:not(.thinking-details) {
+.message>*:not(.thinking-details) {
   margin: 0% !important;
 }
 
-.message > .thinking-details {
+.message>.thinking-details {
   margin-top: 0 !important;
   margin-bottom: 16px !important;
 }
@@ -668,9 +663,11 @@ h6 {
   0% {
     box-shadow: 0 0 8px rgba(40, 167, 69, 0.6);
   }
+
   50% {
     box-shadow: 0 0 16px rgba(40, 167, 69, 0.8);
   }
+
   100% {
     box-shadow: 0 0 8px rgba(40, 167, 69, 0.6);
   }
@@ -733,6 +730,18 @@ h6 {
   font-size: 0.75rem;
   font-weight: 500;
   opacity: 0.8;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Hide default details marker */
+.evaluation-box summary {
+  list-style: none;
+}
+.evaluation-box summary::-webkit-details-marker {
+  display: none;
 }
 </style>
 
