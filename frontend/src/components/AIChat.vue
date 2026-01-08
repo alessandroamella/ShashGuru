@@ -28,6 +28,10 @@ const props = defineProps({
     type: Number,
     required: true,
   },
+  allowInteraction: {
+    type: Boolean,
+    default: true,
+  },
 })
 // Markdown
 const md = new MarkdownIt({ html: true })
@@ -499,7 +503,7 @@ function getScoreClass(score) {
             <span v-else class="material-icons-outlined p-2 fs-5" role="button" title="Copiato!">
               check
             </span>
-            <span class="material-icons-outlined p-2 fs-5" role="button" title="Rigenera" @click="regenerateMessage(i)">
+            <span v-if="allowInteraction" class="material-icons-outlined p-2 fs-5" role="button" title="Rigenera" @click="regenerateMessage(i)">
               refresh
             </span>
           </div>
@@ -543,22 +547,33 @@ function getScoreClass(score) {
           <div class="d-flex flex-column align-items-center">
             <label for="style-selector" class="style-label mb-1">Analysis Style</label>
             <select id="style-selector" v-model="selectedStyle" class="form-select style-selector"
-              aria-label="Analysis Style">
+              aria-label="Analysis Style" :disabled="!allowInteraction">
               <option v-for="style in analysisStyles" :key="style.value" :value="style.value">
                 {{ style.label }}
               </option>
             </select>
           </div>
 
-          <button type="button" class="btn btn-sm fs-4 text-black rounded rounded-4 custom-bg-primary px-5 py-3 fw-bold"
+          <button 
+            type="button" 
+            class="btn btn-sm fs-4 text-black rounded rounded-4 custom-bg-primary px-5 py-3 fw-bold"
+            :class="{ 'opacity-50 cursor-not-allowed': !allowInteraction }"
+            :disabled="!allowInteraction"
             @click="startAnalysisSTREAMED">
-            Analyze
+            {{ allowInteraction ? 'Analyze' : 'Spectating' }}
           </button>
         </div>
       </div>
-      <input v-model="userInput" v-else @keyup.enter="sendMessageSTREAMED" id="input"
-        class="flex-item border rounded px-3 py-2 mt-2 w-100 text-white custom-box" placeholder="Ask Anything!"
-        autocomplete="off" />
+      <input 
+        v-model="userInput" 
+        v-else 
+        @keyup.enter="sendMessageSTREAMED" 
+        id="input"
+        class="flex-item border rounded px-3 py-2 mt-2 w-100 text-white custom-box" 
+        :placeholder="allowInteraction ? 'Ask Anything!' : 'Spectator Mode (Read Only)'"
+        :disabled="!allowInteraction"
+        autocomplete="off" 
+      />
     </div>
   </div>
 </template>
