@@ -340,6 +340,9 @@ def get_concise_fen_summary(fen, board):
     """Generate a concise summary of the board layout without listing every square"""
     summary_parts = []
 
+    # Add FEN string explicitly to ensure LLM has ground truth
+    summary_parts.append(f"FEN: {fen}")
+
     # Side to move
     side_to_move = "White" if board.turn == chess.WHITE else "Black"
     summary_parts.append(f"{side_to_move} to move")
@@ -352,18 +355,18 @@ def get_concise_fen_summary(fen, board):
         square_name = chess.square_name(square)
         piece_symbol = piece.symbol().upper()
 
-        # Only include non-pawn pieces and pawns on advanced ranks
+        # Include non-pawn pieces and any pawn that has moved from starting rank
         rank = chess.square_rank(square)
-        if piece.piece_type != chess.PAWN or (piece.color == chess.WHITE and rank >= 4) or (piece.color == chess.BLACK and rank <= 3):
+        if piece.piece_type != chess.PAWN or (piece.color == chess.WHITE and rank != 1) or (piece.color == chess.BLACK and rank != 6):
             if piece.color == chess.WHITE:
                 white_pieces.append(f"{piece_symbol}{square_name}")
             else:
                 black_pieces.append(f"{piece_symbol}{square_name}")
 
     if white_pieces:
-        summary_parts.append(f"White: {', '.join(white_pieces)}")
+        summary_parts.append(f"White pieces (active): {', '.join(white_pieces)}")
     if black_pieces:
-        summary_parts.append(f"Black: {', '.join(black_pieces)}")
+        summary_parts.append(f"Black pieces (active): {', '.join(black_pieces)}")
 
     return "; ".join(summary_parts)
 
