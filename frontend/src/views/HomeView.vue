@@ -861,7 +861,13 @@ watch(selectedMoveIndex, async () => {
             <!-- CHAT TAB -->
             <div v-if="activeTab === 'chat'" id="chat-view"
               class="tab-pane chat-section flex-fill rounded-4 d-flex flex-column">
-              <AIChat :fen="fen" :depth="depth" @loadingChat="handleLoadingChat" />
+              <!-- Pass allowInteraction prop here -->
+              <AIChat 
+                :fen="fen" 
+                :depth="evaluationDepth" 
+                :allowInteraction="!isSpectator"
+                @loadingChat="handleLoadingChat" 
+              />
             </div>
           </div>
         </div>

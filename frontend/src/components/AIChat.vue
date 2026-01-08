@@ -2,7 +2,7 @@
 import { ref, watch, nextTick, onMounted, computed } from 'vue'
 import { validateFen } from 'fentastic'
 import MarkdownIt from 'markdown-it'
-import { useChessStore } from '@/stores/useChessStore' // Import store
+import { useChessStore } from '@/stores/useChessStore'
 
 const chessStore = useChessStore()
 
@@ -27,6 +27,10 @@ const props = defineProps({
   depth: {
     type: Number,
     required: true,
+  },
+  allowInteraction: {
+    type: Boolean,
+    default: true,
   },
 })
 // Markdown
@@ -402,15 +406,30 @@ async function copyMessage(text) {
 //  Regenerate assistant reply
 
 async function regenerateMessage(index) {
+  // Cerca l'indice dell'ultimo messaggio utente precedente a quello corrente
   const lastUserIndex = messages.value
     .slice(0, index)
     .map((msg, i) => ({ msg, i }))
     .reverse()
     .find((item) => item.msg.role === 'user')?.i
-  if (lastUserIndex === undefined) return
+
+  // CASO 1: RIGENERAZIONE ANALISI
+  // Se non troviamo un messaggio utente, significa che stiamo rigenerando un'analisi iniziale
+  if (lastUserIndex === undefined) {
+    messages.value.splice(index, 1) // Rimuovi il messaggio di risposta vecchio
+    await startAnalysisSTREAMED()   // Rilancia l'analisi
+    return
+  }
+
+  // CASO 2: RIGENERAZIONE CHAT
+  // Se c'è un messaggio utente, è una normale chat
   const lastUserMessage = messages.value[lastUserIndex]
   userInput.value = lastUserMessage.content
-  messages.value.splice(index - 1, 2)
+  
+  // Rimuovi tutti i messaggi dall'ultimo utente fino a quello corrente (resetta il turno)
+  // Questo sostituisce il vecchio 'splice(index - 1, 2)' che era meno robusto
+  messages.value.splice(lastUserIndex, (index - lastUserIndex) + 1)
+  
   await sendMessageSTREAMED()
 }
 
@@ -484,7 +503,7 @@ function getScoreClass(score) {
             <span v-else class="material-icons-outlined p-2 fs-5" role="button" title="Copiato!">
               check
             </span>
-            <span class="material-icons-outlined p-2 fs-5" role="button" title="Rigenera" @click="regenerateMessage(i)">
+            <span v-if="allowInteraction" class="material-icons-outlined p-2 fs-5" role="button" title="Rigenera" @click="regenerateMessage(i)">
               refresh
             </span>
           </div>
@@ -528,22 +547,33 @@ function getScoreClass(score) {
           <div class="d-flex flex-column align-items-center">
             <label for="style-selector" class="style-label mb-1">Analysis Style</label>
             <select id="style-selector" v-model="selectedStyle" class="form-select style-selector"
-              aria-label="Analysis Style">
+              aria-label="Analysis Style" :disabled="!allowInteraction">
               <option v-for="style in analysisStyles" :key="style.value" :value="style.value">
                 {{ style.label }}
               </option>
             </select>
           </div>
 
-          <button type="button" class="btn btn-sm fs-4 text-black rounded rounded-4 custom-bg-primary px-5 py-3 fw-bold"
+          <button 
+            type="button" 
+            class="btn btn-sm fs-4 text-black rounded rounded-4 custom-bg-primary px-5 py-3 fw-bold"
+            :class="{ 'opacity-50 cursor-not-allowed': !allowInteraction }"
+            :disabled="!allowInteraction"
             @click="startAnalysisSTREAMED">
-            Analyze
+            {{ allowInteraction ? 'Analyze' : 'Spectating' }}
           </button>
         </div>
       </div>
-      <input v-model="userInput" v-else @keyup.enter="sendMessageSTREAMED" id="input"
-        class="flex-item border rounded px-3 py-2 mt-2 w-100 text-white custom-box" placeholder="Ask Anything!"
-        autocomplete="off" />
+      <input 
+        v-model="userInput" 
+        v-else 
+        @keyup.enter="sendMessageSTREAMED" 
+        id="input"
+        class="flex-item border rounded px-3 py-2 mt-2 w-100 text-white custom-box" 
+        :placeholder="allowInteraction ? 'Ask Anything!' : 'Spectator Mode (Read Only)'"
+        :disabled="!allowInteraction"
+        autocomplete="off" 
+      />
     </div>
   </div>
 </template>
