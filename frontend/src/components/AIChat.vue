@@ -6,6 +6,8 @@ import { useChessStore } from '@/stores/useChessStore'
 
 const chessStore = useChessStore()
 
+let currentAbortController = null
+
 const remote_server_url = import.meta.env.BASE_URL + 'backend'
 const local_server_url = 'http://localhost:5000'
 const starting_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
@@ -17,6 +19,11 @@ const availableModels = ref([])
 
 //emits
 const emit = defineEmits(['loadingChat'])
+
+// Esponi la funzione al genitore (HomeView)
+defineExpose({
+  resetChat
+})
 
 // Props
 const props = defineProps({
@@ -125,6 +132,10 @@ async function fetchAnalysisStyles() {
 async function sendMessageSTREAMED() {
   if (userInput.value.trim() === '') return
 
+  // Abort previous request if active
+  if (currentAbortController) currentAbortController.abort()
+  currentAbortController = new AbortController()
+
   const userMessage = { role: 'user', content: userInput.value }
   messages.value.push(userMessage)
   userInput.value = ''
@@ -152,6 +163,7 @@ async function sendMessageSTREAMED() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(messages.value),
+        signal: currentAbortController.signal, // <--- AGGIUNGI QUESTO
       },
     )
 
@@ -193,19 +205,31 @@ async function sendMessageSTREAMED() {
 
     // Final cleanup
   } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Request aborted')
+      return // Esci silenziosamente se abortito
+    }
     console.error('Streaming error:', error)
     messages.value.push({ role: 'assistant', content: 'Error: unable to fetch response.' })
     scrollToBottom()
   } finally {
-    loading.value = false
-    emit('loadingChat', false)
-    console.log(messages.value)
+     // Non settare loading false se è stato abortito per una nuova richiesta
+     if (currentAbortController && !currentAbortController.signal.aborted) {
+        loading.value = false
+        emit('loadingChat', false)
+        currentAbortController = null
+     }
   }
 }
 
 async function startAnalysisSTREAMED() {
   toAnalyse.value = false
   messages.value.length = 0
+  
+  // Abort previous request
+  if (currentAbortController) currentAbortController.abort()
+  currentAbortController = new AbortController()
+  
   const fenToAnalyse = validateFen(props.fen.trim()).valid ? props.fen.trim() : starting_fen
 
   if (validateFen(fenToAnalyse).valid) {
@@ -228,6 +252,7 @@ async function startAnalysisSTREAMED() {
           model: currentModelId,
           evaluator_model: currentEvaluatorId,
         }),
+        signal: currentAbortController.signal, // <--- AGGIUNGI QUESTO
       })
 
       if (!response.ok || !response.body) {
@@ -293,12 +318,19 @@ async function startAnalysisSTREAMED() {
       // Final cleanup
       // Content already updated in loop
     } catch (error) {
-      console.error('Streaming error:', error)
-      messages.value.push({ role: 'assistant', content: 'Error: unable to fetch analysis.' })
-      scrollToBottom()
+       if (error.name === 'AbortError') {
+          console.log('Analysis aborted')
+          return
+       }
+       console.error('Streaming error:', error)
+       messages.value.push({ role: 'assistant', content: 'Error: unable to fetch analysis.' })
+       scrollToBottom()
     } finally {
-      loading.value = false
-      emit('loadingChat', false)
+      if (currentAbortController && !currentAbortController.signal.aborted) {
+        loading.value = false
+        emit('loadingChat', false)
+        currentAbortController = null
+      }
     }
   }
 }
@@ -433,6 +465,18 @@ async function regenerateMessage(index) {
   await sendMessageSTREAMED()
 }
 
+function resetChat() {
+  // Interrompe eventuali richieste in corso
+  if (currentAbortController) {
+    currentAbortController.abort()
+    currentAbortController = null
+  }
+  messages.value = []
+  loading.value = false
+  toAnalyse.value = true
+  // Se stiamo resettando, permettiamo di rianalizzare subito
+}
+
 onMounted(async () => {
   isClipboardCopyingAvailable.value = navigator.clipboard.writeText ? true : false
   await checkLocalBackendAvailability()
@@ -457,7 +501,7 @@ function getScoreClass(score) {
 <template>
   <div class="container-fill d-flex flex-column overflow-auto p-3 me-0 rounded-4 w-100 h-100">
     <!-- Chat Messages -->
-    <div id="messages" class="flex-grow-1 h-100 overflow-auto" style="scroll-behavior: smooth">
+    <div id="messages" class="grow h-100 overflow-auto" style="scroll-behavior: smooth">
       <div v-for="(message, i) in messages" :key="i">
         <div v-if="message.role === 'user'" class="d-flex mb-1 justify-content-end">
           <div class="p-3 px-4 rounded-4 ms-5" id="usermessage">
@@ -540,7 +584,7 @@ function getScoreClass(score) {
       </small>
     </div>
 
-    <div class="flex-shrink-0">
+    <div class="shrink-0">
       <div v-if="toAnalyse" class="flex-item">
         <!-- Style Selector and Analyze Button - Horizontally Spaced -->
         <div class="d-flex justify-content-center align-items-center gap-3 mb-3">

@@ -71,6 +71,9 @@ const isEngineEvaluationLoading = ref(false)
 const showLines = ref(DEFAULT_SHOW_LINES)
 const evaluationDepth = ref(DEFAULT_DEPTH)
 
+// Ref for AIChat component
+const aiChatRef = ref(null)
+
 // Funzioni live
 
 async function pollLiveState() {
@@ -681,6 +684,39 @@ onUnmounted(() => {
   if (pollingInterval.value) clearInterval(pollingInterval.value)
 })
 
+function handleSystemReset() {
+  console.log("System Hard Reset Triggered")
+  
+  // 1. Resetta Chat AI (interrompe anche le chiamate di rete)
+  if (aiChatRef.value) {
+    aiChatRef.value.resetChat()
+  }
+
+  // 2. Resetta l'albero delle mosse
+  initializeTree()
+  rebuildMovesDisplay()
+  hasMoves.value = false
+  
+  // 3. Resetta le valutazioni del motore
+  engineEvaluation.value = {
+    bestMove: null,
+    evaluation: null,
+    depth: 0,
+    lines: [],
+  }
+  isEngineEvaluationLoading.value = false
+  
+  // 4. Resetta metadati giocatore
+  whitePlayer.value = ''
+  blackPlayer.value = ''
+  gameResult.value = ''
+  hasPlayerInfo.value = false
+
+  // 5. Opzionale: Resetta la FEN alla posizione iniziale
+  const startingFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+  updateFen(startingFen)
+}
+
 watch(selectedMoveIndex, async () => {
   await nextTick()
   const el = moveRefs.value[selectedMoveIndex.value]
@@ -696,30 +732,41 @@ watch(selectedMoveIndex, async () => {
 
 <template>
   <!-- Control Bar -->
-  <div class="d-flex justify-content-center w-100 p-2 text-white fw-bold align-items-center" :class="statusClass">
-    <!-- Case 1: I am the player -->
-    <div v-if="isController" class="d-flex align-items-center gap-3">
-      <span>You are playing (Controller)</span>
-      <button class="btn btn-sm btn-light text-danger fw-bold" @click="leaveGame">
-        Stop playing (Spectate)
+  <div class="d-flex justify-content-between align-items-center w-100 p-2 text-white fw-bold" :class="statusClass">
+    <!-- Left: Reset Button -->
+    <div class="ms-3">
+      <button class="btn btn-sm btn-danger border border-white fw-bold d-flex align-items-center gap-1 shadow" @click="handleSystemReset" title="Reset everything (Fix stuck analysis)">
+        <i class="material-icons" style="font-size: 16px;">restart_alt</i> 
+        <span class="d-none d-sm-inline">Reset System</span>
       </button>
     </div>
-
-    <!-- Case 2: Someone else is playing -->
-    <div v-else-if="!liveState.is_free && !isController">
-      SPECTATOR MODE: Another user is playing
+    
+    <!-- Center: Status/Control -->
+    <div class="grow d-flex justify-content-center">
+      <!-- Case 1: I am the player -->
+      <div v-if="isController" class="d-flex align-items-center gap-2 gap-md-3 flex-wrap justify-content-center">
+        <span class="text-center">You are playing (Controller)</span>
+        <button class="btn btn-sm btn-light text-danger fw-bold" @click="leaveGame">
+          Stop playing (Spectate)
+        </button>
+      </div>
+      <!-- Case 2: Someone else is playing -->
+      <div v-else-if="!liveState.is_free && !isController" class="text-center">
+        SPECTATOR MODE: Another user is playing
+      </div>
+      <!-- Case 3: The spot is free -->
+      <div v-else-if="liveState.is_free" class="d-flex align-items-center gap-2 gap-md-3 flex-wrap justify-content-center">
+        <span>The board is free</span>
+        <button class="btn btn-sm btn-success fw-bold" @click="claimController">
+          Join game (Play)
+        </button>
+      </div>
+      <!-- Case 4: Connecting -->
+      <div v-else class="text-center">Connecting...</div>
     </div>
-
-    <!-- Case 3: The spot is free -->
-    <div v-else-if="liveState.is_free" class="d-flex align-items-center gap-3">
-      <span>The board is free</span>
-      <button class="btn btn-sm btn-success fw-bold" @click="claimController">
-        Join game (Play)
-      </button>
-    </div>
-
-    <!-- Case 4: Connecting -->
-    <div v-else>Connecting...</div>
+    
+    <!-- Right: Spacer to balance left button -->
+    <div class="me-3" style="width: 140px;"></div>
   </div>
 
   <div id="chessboard" class="d-flex flex-column flex-lg-row justify-content-evenly m-2 m-lg-5">
@@ -863,6 +910,7 @@ watch(selectedMoveIndex, async () => {
               class="tab-pane chat-section flex-fill rounded-4 d-flex flex-column">
               <!-- Pass allowInteraction prop here -->
               <AIChat 
+                ref="aiChatRef" 
                 :fen="fen" 
                 :depth="evaluationDepth" 
                 :allowInteraction="!isSpectator"
