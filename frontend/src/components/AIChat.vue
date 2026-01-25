@@ -163,7 +163,7 @@ async function sendMessageSTREAMED() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(messages.value),
-        signal: currentAbortController.signal, // <--- AGGIUNGI QUESTO
+        signal: currentAbortController.signal,
       },
     )
 
@@ -252,7 +252,7 @@ async function startAnalysisSTREAMED() {
           model: currentModelId,
           evaluator_model: currentEvaluatorId,
         }),
-        signal: currentAbortController.signal, // <--- AGGIUNGI QUESTO
+        signal: currentAbortController.signal,
       })
 
       if (!response.ok || !response.body) {
